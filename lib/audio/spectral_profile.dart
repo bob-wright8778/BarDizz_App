@@ -8,13 +8,21 @@ import 'audio_constants.dart';
 /// sample rate (Nyquist 8kHz).
 const List<double> spectralBandCenters = [500, 1000, 2000, 3000, 4000, 6000];
 
-/// Placeholder reference profile for a stick-on-puck impact's frequency
-/// shape (normalized relative energy per band in [spectralBandCenters]),
-/// hand-picked to bias toward the broadband high-frequency "crack" of a
-/// stick/puck impact rather than the low-frequency-heavy voice/thud sounds
-/// it must be distinguished from. Replaced by a real per-user calibrated
-/// profile in ticket 03.
-const List<double> defaultShotSpectralProfile = [0.05, 0.10, 0.20, 0.25, 0.25, 0.15];
+/// Reference profile for a stick-on-puck impact's frequency shape
+/// (normalized relative energy per band in [spectralBandCenters]), derived
+/// from 43 real shot recordings on 2026-07-17 (`tool/derive_profile.dart`,
+/// averaging each clip's peak-amplitude chunk's spectral profile via
+/// [deriveReferenceProfile] — same math as per-user calibration). Real shots
+/// through this mic pipeline read as low-frequency-dominant, not the
+/// high-frequency "crack" a prior hand-picked placeholder assumed — that
+/// placeholder scored real shots at 0.12-0.30 similarity, well under the
+/// detection threshold. Not reachable in production live detection —
+/// `AppHomeGate` (`main.dart`) requires a per-user calibration profile to
+/// exist before the session screen is ever shown, so
+/// `LiveMicLevelController` always passes a calibrated `referenceProfile`
+/// (`mic_level_controller.dart`). This constant is the default `ShotDetector`
+/// falls back to when none is supplied — used by tests and the tuning tools.
+const List<double> defaultShotSpectralProfile = [0.5121, 0.3161, 0.0727, 0.0588, 0.0183, 0.0220];
 
 /// Computes a normalized per-band energy "shape" profile of a PCM16 buffer
 /// via the Goertzel algorithm, one energy value per entry in
