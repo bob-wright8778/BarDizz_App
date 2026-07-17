@@ -8,6 +8,7 @@ import 'screens/debug_meter_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/session_screen.dart';
 import 'screens/settings_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   runApp(const HockeyShotTrackerApp());
@@ -19,8 +20,8 @@ class HockeyShotTrackerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Hockey Shot Tracker',
-      theme: ThemeData(colorSchemeSeed: Colors.blue, useMaterial3: true),
+      title: 'BarDizz',
+      theme: AppTheme.dark,
       home: const AppHomeGate(),
     );
   }

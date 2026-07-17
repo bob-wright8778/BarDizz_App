@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import '../audio/mic_level_controller.dart';
 import '../history/session_history_store.dart';
 import '../history/session_record.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/pill_progress_indicator.dart';
 
 /// Default shot-count goal for a new session, shown as "of 10000" until the
 /// user edits it.
@@ -181,23 +183,30 @@ class _SessionScreenState extends State<SessionScreen> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                '$_count',
+                key: const Key('shotCountText'),
+                style: Theme.of(context).textTheme.displayLarge,
+              ),
+            ),
             Text(
-              '$_count',
-              key: const Key('shotCountText'),
-              style: Theme.of(context).textTheme.displayMedium,
+              'of $_goal',
+              key: const Key('goalText'),
+              style: AppTypography.caption,
             ),
-            Text('of $_goal', key: const Key('goalText')),
-            const SizedBox(height: 16),
-            LinearProgressIndicator(
-              key: const Key('progressBar'),
+            const SizedBox(height: AppSpacing.lg),
+            PillProgressIndicator(
+              progressKey: const Key('progressBar'),
               value: progress,
-              minHeight: 16,
+              minHeight: AppSpacing.lg,
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: AppSpacing.xxl),
             if (_running)
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -208,7 +217,7 @@ class _SessionScreenState extends State<SessionScreen> {
                     icon: const Icon(Icons.remove_circle_outline),
                     onPressed: _decrement,
                   ),
-                  const SizedBox(width: 32),
+                  const SizedBox(width: AppSpacing.xxl),
                   IconButton(
                     key: const Key('incrementButton'),
                     iconSize: 40,
@@ -217,18 +226,18 @@ class _SessionScreenState extends State<SessionScreen> {
                   ),
                 ],
               ),
-            const SizedBox(height: 32),
+            const SizedBox(height: AppSpacing.xxl),
             ElevatedButton(
               key: const Key('sessionToggleButton'),
               onPressed: _toggleSession,
               child: Text(_running ? 'End Session' : 'Start Session'),
             ),
             if (_error != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.lg),
               Text(
                 _error!,
                 key: const Key('sessionErrorText'),
-                style: const TextStyle(color: Colors.red),
+                style: AppTypography.errorText,
               ),
             ],
           ],

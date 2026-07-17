@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../theme/design_tokens.dart';
+import '../widgets/app_card.dart';
+
 /// Minimal settings screen: the calibration redo entry point (Acceptance
 /// criterion: calibration can be re-done at any time), plus an optional
 /// entry to the raw mic debug meter (ticket 01's capture proof-of-concept),
@@ -15,22 +18,28 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        children: [
-          ListTile(
-            key: const Key('recalibrateTile'),
-            leading: const Icon(Icons.tune),
-            title: const Text('Redo calibration'),
-            onTap: onRecalibrate,
+      body: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: AppCard(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                key: const Key('recalibrateTile'),
+                leading: const Icon(Icons.tune),
+                title: const Text('Redo calibration'),
+                onTap: onRecalibrate,
+              ),
+              if (onDebugMeterTap != null)
+                ListTile(
+                  key: const Key('debugMeterTile'),
+                  leading: const Icon(Icons.bug_report),
+                  title: const Text('Debug meter'),
+                  onTap: onDebugMeterTap,
+                ),
+            ],
           ),
-          if (onDebugMeterTap != null)
-            ListTile(
-              key: const Key('debugMeterTile'),
-              leading: const Icon(Icons.bug_report),
-              title: const Text('Debug meter'),
-              onTap: onDebugMeterTap,
-            ),
-        ],
+        ),
       ),
     );
   }

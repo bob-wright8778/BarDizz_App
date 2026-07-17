@@ -10,7 +10,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
-        android:label="Hockey Shot Tracker"
+        android:label="BarDizz"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

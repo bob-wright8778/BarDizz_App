@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../audio/calibration_controller.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/app_card.dart';
+import '../widgets/pill_progress_indicator.dart';
 
 /// Guided flow: prompts the user to take [CalibrationController.targetSamples]
 /// sample shots, then derives and saves a reference profile from them.
@@ -96,38 +99,47 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Calibrate Detection')),
       body: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              done
-                  ? 'All $target sample shots recorded.'
-                  : 'Take a shot to record sample ${_recorded + 1} of $target.',
-              key: const Key('calibrationStatusText'),
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 24),
-            LinearProgressIndicator(
-              key: const Key('calibrationProgress'),
-              value: target == 0 ? 0 : _recorded / target,
-            ),
-            const SizedBox(height: 32),
-            if (!_starting && !done) ...[
-              Text(
-                'Mic level: ${(_level * 100).toStringAsFixed(0)}%'
-                ' (need ${(widget.controller.amplitudeThreshold * 100).toStringAsFixed(0)}%+)',
-                key: const Key('calibrationLevelText'),
+            AppCard(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                children: [
+                  Text(
+                    done
+                        ? 'All $target sample shots recorded.'
+                        : 'Take a shot to record sample ${_recorded + 1} of $target.',
+                    key: const Key('calibrationStatusText'),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  PillProgressIndicator(
+                    progressKey: const Key('calibrationProgress'),
+                    value: target == 0 ? 0 : _recorded / target,
+                  ),
+                  if (!_starting && !done) ...[
+                    const SizedBox(height: AppSpacing.xxl),
+                    Text(
+                      'Mic level: ${(_level * 100).toStringAsFixed(0)}%'
+                      ' (need ${(widget.controller.amplitudeThreshold * 100).toStringAsFixed(0)}%+)',
+                      key: const Key('calibrationLevelText'),
+                      style: AppTypography.caption,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    PillProgressIndicator(
+                      progressKey: const Key('calibrationLevelMeter'),
+                      value: _level.clamp(0.0, 1.0),
+                      minHeight: AppSpacing.md,
+                    ),
+                  ],
+                ],
               ),
-              const SizedBox(height: 8),
-              LinearProgressIndicator(
-                key: const Key('calibrationLevelMeter'),
-                value: _level.clamp(0.0, 1.0),
-                minHeight: 12,
-              ),
-              const SizedBox(height: 24),
-            ],
+            ),
+            const SizedBox(height: AppSpacing.xxl),
             if (_starting)
               const CircularProgressIndicator()
             else if (!done)
@@ -143,11 +155,11 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
                 child: Text(_finishing ? 'Saving…' : 'Finish'),
               ),
             if (_error != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.lg),
               Text(
                 _error!,
                 key: const Key('calibrationErrorText'),
-                style: const TextStyle(color: Colors.red),
+                style: AppTypography.errorText,
               ),
             ],
           ],

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../history/session_history_store.dart';
 import '../history/session_record.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/app_card.dart';
 
 /// Lists past completed sessions, most recent first (Acceptance criterion:
 /// a history screen lists past sessions, persisted across app restarts).
@@ -43,7 +45,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   Widget _buildBody() {
     if (_error != null) {
-      return Center(child: Text(_error!, key: const Key('historyErrorText')));
+      return Center(
+        child: Text(_error!, key: const Key('historyErrorText'), style: AppTypography.errorText),
+      );
     }
     final sessions = _sessions;
     if (sessions == null) {
@@ -54,12 +58,28 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
     return ListView.builder(
       key: const Key('historyList'),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       itemCount: sessions.length,
       itemBuilder: (context, index) {
         final session = sessions[index];
-        return ListTile(
-          title: Text('${session.shotCount} shots'),
-          subtitle: Text(_describe(session)),
+        // MergeSemantics so a screen reader announces each session as one
+        // item ("250 shots, ...") instead of two separate stops -- the
+        // ListTile this replaced did this automatically.
+        return MergeSemantics(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+            child: AppCard(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${session.shotCount} shots', style: Theme.of(context).textTheme.headlineSmall),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(_describe(session), style: AppTypography.caption),
+                ],
+              ),
+            ),
+          ),
         );
       },
     );

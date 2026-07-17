@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../audio/mic_level_controller.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/pill_progress_indicator.dart';
 
 /// Debug screen proving continuous mic capture: a live level meter driven
 /// by [controller]'s amplitude stream, plus start/stop controls.
@@ -55,7 +57,7 @@ class _DebugMeterScreenState extends State<DebugMeterScreen> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -71,17 +73,17 @@ class _DebugMeterScreenState extends State<DebugMeterScreen> {
                       key: const Key('levelText'),
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
-                    const SizedBox(height: 16),
-                    LinearProgressIndicator(
-                      key: const Key('levelMeter'),
+                    const SizedBox(height: AppSpacing.lg),
+                    PillProgressIndicator(
+                      progressKey: const Key('levelMeter'),
                       value: level,
-                      minHeight: 24,
+                      minHeight: AppSpacing.xl,
                     ),
                   ],
                 );
               },
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: AppSpacing.xxl),
             StreamBuilder<int>(
               stream: widget.controller.shotCount,
               initialData: 0,
@@ -93,18 +95,18 @@ class _DebugMeterScreenState extends State<DebugMeterScreen> {
                 );
               },
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: AppSpacing.xxl),
             ElevatedButton(
               key: const Key('toggleButton'),
               onPressed: _toggle,
               child: Text(_running ? 'Stop' : 'Start'),
             ),
             if (_error != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.lg),
               Text(
                 _error!,
                 key: const Key('errorText'),
-                style: const TextStyle(color: Colors.red),
+                style: AppTypography.errorText,
               ),
             ],
           ],

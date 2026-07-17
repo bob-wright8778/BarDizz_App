@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Hockey Shot Tracker</string>
+	<string>BarDizz</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>hockey_shot_tracker</string>
+	<string>BarDizz</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -50,7 +50,7 @@
 
 	<!-- Mic capture (ticket 01) -->
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Hockey Shot Tracker listens for the sound of your stick hitting the puck to count shots automatically.</string>
+	<string>BarDizz listens for the sound of your stick hitting the puck to count shots automatically.</string>
 
 	<!-- Keep capture alive while backgrounded/locked (ticket 01): the
 	     "audio" background mode lets an active audio session (which

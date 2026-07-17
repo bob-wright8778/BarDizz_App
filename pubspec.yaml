@@ -39,3 +39,27 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # Bundled locally (not the google_fonts package) so the app stays fully
+  # offline, matching its otherwise no-network design. Manrope ships from
+  # Google Fonts as a single variable font; each weight below points at the
+  # same file and Flutter interpolates the weight axis.
+  fonts:
+    - family: Barlow Condensed
+      fonts:
+        - asset: assets/fonts/BarlowCondensed-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/BarlowCondensed-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/BarlowCondensed-ExtraBold.ttf
+          weight: 800
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/Manrope-Variable.ttf
+          weight: 400
+        - asset: assets/fonts/Manrope-Variable.ttf
+          weight: 500
+        - asset: assets/fonts/Manrope-Variable.ttf
+          weight: 600
+        - asset: assets/fonts/Manrope-Variable.ttf
+          weight: 700
