@@ -35,3 +35,7 @@ ios/Runner.xcworkspace/
 
 # Design assets (not part of the buildable app)
 design/
+
+# Real personal audio recordings used for shot-detector tuning (see
+# tool/evaluate_detector.dart, tool/analyze_clips.dart, tool/derive_profile.dart)
+test-audio/

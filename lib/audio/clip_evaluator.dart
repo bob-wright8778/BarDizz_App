@@ -1,6 +1,5 @@
-import 'dart:typed_data';
-
 import 'shot_detector.dart';
+import 'wav_chunker.dart';
 import 'wav_reader.dart';
 
 /// Number of shot detections a [ShotDetector] fires while consuming an
@@ -15,22 +14,16 @@ import 'wav_reader.dart';
 int countDetections(
   WavAudio wav, {
   ShotDetectorConfig config = const ShotDetectorConfig(),
-  int chunkSampleCount = 320,
+  int chunkSampleCount = defaultChunkSampleCount,
 }) {
   var clock = DateTime(2026);
   final detector = ShotDetector(config: config, now: () => clock);
-
-  final bytesPerChunk = chunkSampleCount * 2;
   final chunkDuration = Duration(
     microseconds: (chunkSampleCount * 1000000 / config.sampleRate).round(),
   );
 
   var detections = 0;
-  for (var offset = 0; offset < wav.pcm16Mono.length; offset += bytesPerChunk) {
-    final end = (offset + bytesPerChunk < wav.pcm16Mono.length)
-        ? offset + bytesPerChunk
-        : wav.pcm16Mono.length;
-    final chunk = Uint8List.sublistView(wav.pcm16Mono, offset, end);
+  for (final chunk in chunkWav(wav, chunkSampleCount: chunkSampleCount)) {
     if (detector.detect(chunk)) detections++;
     clock = clock.add(chunkDuration);
   }

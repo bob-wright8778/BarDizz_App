@@ -10,11 +10,13 @@ typedef Now = DateTime Function();
 
 class ShotDetectorConfig {
   const ShotDetectorConfig({
-    // Interim value, not a tuned one: real-device testing (ticket 03) found
-    // a deliberate clap through this mic pipeline only reaches ~0.10-0.30,
-    // well under the original 0.35 guess, so nothing ever passed this gate.
-    // Still needs a proper pass against real stick-puck + false-positive
-    // recordings (ticket 02 AC 5/6, still deferred) once those exist.
+    // Validated against 43 real shot / 2 false-positive recordings on
+    // 2026-07-17 (tool/evaluate_detector.dart, tool/analyze_clips.dart):
+    // 100% hit rate at this value with the real-data-derived
+    // defaultShotSpectralProfile. A 20-combination sweep found no threshold
+    // that also improves the false-positive rate without a much larger hit
+    // to hit rate (see dev/contexts/hockey-shot-tracker.md in AI_Workspace)
+    // -- kept unchanged rather than trading real misses for it.
     this.amplitudeThreshold = 0.08,
     this.refractoryWindow = const Duration(milliseconds: 250),
     this.spectralMatchThreshold = 0.75,

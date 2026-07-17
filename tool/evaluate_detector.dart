@@ -4,28 +4,45 @@
 // ShotDetector and reports hit rate / false-positive rate.
 //
 // Usage:
-//   dart run tool/evaluate_detector.dart <shots-dir> <false-positives-dir>
+//   dart run tool/evaluate_detector.dart <shots-dir> <false-positives-dir> [amplitudeThreshold] [spectralMatchThreshold]
 //
 // Each directory should contain 16-bit PCM WAV clips (mono or stereo, any
 // sample rate) — one clip per sound. "Shots" clips should each contain
 // exactly one stick-puck impact; "false positive" clips should contain none.
+// The two optional trailing args override ShotDetectorConfig's defaults, for
+// sweeping threshold combinations during tuning without editing the config.
 import 'dart:io';
 
 import 'package:hockey_shot_tracker/audio/clip_evaluator.dart';
 import 'package:hockey_shot_tracker/audio/shot_detector.dart';
 import 'package:hockey_shot_tracker/audio/wav_reader.dart';
 
+import 'cli_helpers.dart';
+
 void main(List<String> args) {
-  if (args.length != 2) {
+  if (args.length != 2 && args.length != 4) {
     stderr.writeln(
-      'Usage: dart run tool/evaluate_detector.dart <shots-dir> <false-positives-dir>',
+      'Usage: dart run tool/evaluate_detector.dart <shots-dir> <false-positives-dir> '
+      '[amplitudeThreshold] [spectralMatchThreshold]',
     );
     exitCode = 64;
     return;
   }
 
-  final shotsResult = _evaluateDirectory(Directory(args[0]));
-  final falsePositiveResult = _evaluateDirectory(Directory(args[1]));
+  double? amplitudeThreshold;
+  double? spectralMatchThreshold;
+  if (args.length == 4) {
+    amplitudeThreshold = double.tryParse(args[2]);
+    spectralMatchThreshold = double.tryParse(args[3]);
+    if (amplitudeThreshold == null || spectralMatchThreshold == null) {
+      stderr.writeln('amplitudeThreshold and spectralMatchThreshold must be numbers.');
+      exitCode = 64;
+      return;
+    }
+  }
+
+  final shotsResult = _evaluateDirectory(args[0], amplitudeThreshold, spectralMatchThreshold);
+  final falsePositiveResult = _evaluateDirectory(args[1], amplitudeThreshold, spectralMatchThreshold);
 
   final hits = shotsResult.where((r) => r.detections >= 1).length;
   final falsePositives = falsePositiveResult.where((r) => r.detections >= 1).length;
@@ -56,21 +73,24 @@ class _ClipResult {
   final int detections;
 }
 
-List<_ClipResult> _evaluateDirectory(Directory dir) {
-  if (!dir.existsSync()) {
-    stderr.writeln('Directory not found: ${dir.path}');
-    exitCode = 1;
-    return [];
-  }
+List<_ClipResult> _evaluateDirectory(
+  String path,
+  double? amplitudeThreshold,
+  double? spectralMatchThreshold,
+) {
+  final dir = requireDirectory(path);
+  if (dir == null) return [];
 
+  const defaults = ShotDetectorConfig();
   final results = <_ClipResult>[];
-  final files = dir.listSync()
-    ..sort((a, b) => a.path.compareTo(b.path));
-  for (final entity in files) {
-    if (entity is! File || !entity.path.toLowerCase().endsWith('.wav')) continue;
-    final wav = readWav(entity.readAsBytesSync());
-    final config = ShotDetectorConfig(sampleRate: wav.sampleRate);
-    results.add(_ClipResult(entity.path, countDetections(wav, config: config)));
+  for (final file in listWavFiles(dir)) {
+    final wav = readWav(file.readAsBytesSync());
+    final config = ShotDetectorConfig(
+      amplitudeThreshold: amplitudeThreshold ?? defaults.amplitudeThreshold,
+      spectralMatchThreshold: spectralMatchThreshold ?? defaults.spectralMatchThreshold,
+      sampleRate: wav.sampleRate,
+    );
+    results.add(_ClipResult(file.path, countDetections(wav, config: config)));
   }
   return results;
 }

@@ -43,6 +43,25 @@ void main() {
     });
   });
 
+  group('defaultShotSpectralProfile', () {
+    test('matches the values derived from real shot recordings on 2026-07-17', () {
+      // Locks in tool/derive_profile.dart's output against silent drift --
+      // see spectral_profile.dart's doc comment for the derivation method.
+      expect(
+        defaultShotSpectralProfile,
+        [0.5121, 0.3161, 0.0727, 0.0588, 0.0183, 0.0220],
+      );
+    });
+
+    test('is low-frequency-dominant, matching real shots through this mic pipeline', () {
+      final lowBandEnergy = defaultShotSpectralProfile[0] + defaultShotSpectralProfile[1];
+      final highBandEnergy = defaultShotSpectralProfile
+          .sublist(2)
+          .fold<double>(0.0, (sum, v) => sum + v);
+      expect(lowBandEnergy, greaterThan(highBandEnergy));
+    });
+  });
+
   group('cosineSimilarity', () {
     test('identical vectors have similarity 1.0', () {
       expect(cosineSimilarity([0.2, 0.3, 0.5], [0.2, 0.3, 0.5]), closeTo(1.0, 0.0001));

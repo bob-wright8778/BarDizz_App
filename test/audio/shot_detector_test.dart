@@ -34,7 +34,12 @@ Uint8List _shotLikeChunk() {
 
 Uint8List _quietTone() => _sineWave([const MapEntry(150.0, 0.02)]);
 
-Uint8List _loudLowThud() => _sineWave([const MapEntry(150.0, 0.9)]);
+// A pure tone at the highest analyzed band, the opposite end of the
+// spectrum from [defaultShotSpectralProfile]'s low-frequency-dominant real
+// shape (derived from real recordings -- see spectral_profile.dart) -- a
+// low-frequency tone would leak into the same low bands the profile now
+// emphasizes and no longer represent a mismatched shape.
+Uint8List _loudWrongShapeChunk() => _sineWave([const MapEntry(6000.0, 0.9)]);
 
 Uint8List _silence() => Uint8List(640);
 
@@ -55,9 +60,9 @@ void main() {
       expect(detector.detect(_quietTone()), isFalse);
     });
 
-    test('a loud chunk with the wrong spectral shape (low-frequency thud) does not count', () {
+    test('a loud chunk with the wrong spectral shape (high-frequency whine) does not count', () {
       final detector = ShotDetector();
-      expect(detector.detect(_loudLowThud()), isFalse);
+      expect(detector.detect(_loudWrongShapeChunk()), isFalse);
     });
 
     test('refractory window blocks a second match immediately after the first', () {
