@@ -1,0 +1,65 @@
+name: hockey_shot_tracker
+description: >
+  A hockey shot-practice app that counts shots automatically by listening
+  for the sound of a stick hitting the puck.
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+  flutter: '>=3.22.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Raw PCM mic streaming, cross-platform (Android/iOS/desktop/web).
+  # Chosen over mic_stream (unmaintained, weak iOS support) and
+  # flutter_sound/audio_streamer (heavier API surface / no raw PCM stream)
+  # because it is actively maintained and exposes startStream() with a
+  # pcm16bits encoder on both Android and iOS.
+  record: ^7.1.1
+
+  # Android foreground service with a declared "microphone" service type,
+  # so capture survives backgrounding/lock screen per Android 14+ rules.
+  flutter_foreground_task: ^10.0.0
+
+  # Runtime microphone permission request/check on both platforms.
+  permission_handler: ^12.0.3
+
+  # Local key-value storage for the calibrated reference profile. Already
+  # in the dependency tree transitively (via flutter_foreground_task);
+  # promoted to a direct dependency here since we use it ourselves.
+  shared_preferences: ^2.5.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Bundled locally (not the google_fonts package) so the app stays fully
+  # offline, matching its otherwise no-network design. Manrope ships from
+  # Google Fonts as a single variable font; each weight below points at the
+  # same file and Flutter interpolates the weight axis.
+  fonts:
+    - family: Barlow Condensed
+      fonts:
+        - asset: assets/fonts/BarlowCondensed-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/BarlowCondensed-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/BarlowCondensed-ExtraBold.ttf
+          weight: 800
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/Manrope-Variable.ttf
+          weight: 400
+        - asset: assets/fonts/Manrope-Variable.ttf
+          weight: 500
+        - asset: assets/fonts/Manrope-Variable.ttf
+          weight: 600
+        - asset: assets/fonts/Manrope-Variable.ttf
+          weight: 700
