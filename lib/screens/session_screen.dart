@@ -209,7 +209,7 @@ class _SessionScreenState extends State<SessionScreen> {
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   'THE BAR DOWN CHALLENGE',
-                  style: AppTypography.overline.copyWith(color: AppColors.ink300),
+                  style: AppTypography.overline.copyWith(color: AppColors.iceBluePrimary),
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 AppCard(
@@ -229,7 +229,7 @@ class _SessionScreenState extends State<SessionScreen> {
                         label: 'BAR DOWNS',
                         value: '$_displayedBarDowns',
                         valueKey: const Key('allTimeBarDownsValue'),
-                        valueColor: AppColors.iceBluePressed,
+                        barDownAccent: true,
                       ),
                       _TotalStat(
                         label: 'RATE',
@@ -262,7 +262,7 @@ class _SessionScreenState extends State<SessionScreen> {
                       incrementKey: const Key('barDownIncrementButton'),
                       decrementKey: const Key('barDownDecrementButton'),
                       valueKey: const Key('sessionBarDownCountText'),
-                      glow: true,
+                      barDownAccent: true,
                     ),
                   ],
                 ),
@@ -294,13 +294,13 @@ class _TotalStat extends StatelessWidget {
     required this.label,
     required this.value,
     required this.valueKey,
-    this.valueColor,
+    this.barDownAccent = false,
   });
 
   final String label;
   final String value;
   final Key valueKey;
-  final Color? valueColor;
+  final bool barDownAccent;
 
   @override
   Widget build(BuildContext context) {
@@ -313,8 +313,9 @@ class _TotalStat extends StatelessWidget {
           value,
           key: valueKey,
           style: AppTypography.h2.copyWith(
-            color: valueColor ?? AppColors.ink50,
+            color: barDownAccent ? AppColors.iceBluePressed : AppColors.ink50,
             fontFeatures: const [FontFeature.tabularFigures()],
+            shadows: barDownAccent ? AppGlow.barDown : null,
           ),
         ),
       ],
@@ -332,7 +333,7 @@ class _CorrectionDial extends StatelessWidget {
     required this.incrementKey,
     required this.decrementKey,
     required this.valueKey,
-    this.glow = false,
+    this.barDownAccent = false,
   });
 
   final String label;
@@ -343,24 +344,14 @@ class _CorrectionDial extends StatelessWidget {
   final Key incrementKey;
   final Key decrementKey;
   final Key valueKey;
-  final bool glow;
+  final bool barDownAccent;
 
   @override
   Widget build(BuildContext context) {
     final valueStyle = AppTypography.display.copyWith(
       fontSize: 48,
-      shadows: glow
-          ? [
-              Shadow(
-                color: AppColors.iceBluePrimary.withValues(alpha: 0.6),
-                blurRadius: 16,
-              ),
-              Shadow(
-                color: AppColors.iceBluePrimary.withValues(alpha: 0.35),
-                blurRadius: 32,
-              ),
-            ]
-          : null,
+      color: barDownAccent ? AppColors.iceBluePressed : null,
+      shadows: barDownAccent ? AppGlow.barDown : null,
     );
 
     return Column(

@@ -13,9 +13,9 @@ class AppTheme {
     scaffoldBackgroundColor: AppColors.pageBackground,
     colorScheme: const ColorScheme(
       brightness: Brightness.dark,
-      primary: AppColors.magentaPrimary,
+      primary: AppColors.iceBluePrimary,
       onPrimary: AppColors.ink900,
-      secondary: AppColors.tealSecondary,
+      secondary: AppColors.graphiteSecondary,
       onSecondary: AppColors.ink900,
       error: AppColors.error,
       onError: AppColors.ink50,
@@ -40,7 +40,7 @@ class AppTheme {
     iconTheme: const IconThemeData(color: AppColors.ink200),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.magentaPrimary,
+        backgroundColor: AppColors.iceBluePrimary,
         foregroundColor: AppColors.ink900,
         textStyle: AppTypography.label.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink900),
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.md),
@@ -57,7 +57,7 @@ class AppTheme {
     // A track the same color as the page background would be invisible --
     // one step lighter so the unfilled portion stays visible.
     progressIndicatorTheme: const ProgressIndicatorThemeData(
-      color: AppColors.magentaPrimary,
+      color: AppColors.iceBluePrimary,
       linearTrackColor: AppColors.ink700,
     ),
     listTileTheme: const ListTileThemeData(

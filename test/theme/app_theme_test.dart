@@ -11,9 +11,9 @@ void main() {
     expect(theme.scaffoldBackgroundColor, AppColors.pageBackground);
   });
 
-  test('color scheme maps magenta to primary and teal to secondary', () {
-    expect(theme.colorScheme.primary, AppColors.magentaPrimary);
-    expect(theme.colorScheme.secondary, AppColors.tealSecondary);
+  test('color scheme maps ice blue to primary and graphite to secondary', () {
+    expect(theme.colorScheme.primary, AppColors.iceBluePrimary);
+    expect(theme.colorScheme.secondary, AppColors.graphiteSecondary);
     expect(theme.colorScheme.surface, AppColors.cardSurface);
     expect(theme.colorScheme.error, AppColors.error);
   });
@@ -34,12 +34,12 @@ void main() {
     final background = style.backgroundColor!.resolve(<WidgetState>{});
     final shape = style.shape!.resolve(<WidgetState>{}) as RoundedRectangleBorder;
 
-    expect(background, AppColors.magentaPrimary);
+    expect(background, AppColors.iceBluePrimary);
     expect(shape.borderRadius, BorderRadius.circular(AppRadius.pill));
   });
 
   test('progress indicators fill with the primary accent on a visibly distinct track', () {
-    expect(theme.progressIndicatorTheme.color, AppColors.magentaPrimary);
+    expect(theme.progressIndicatorTheme.color, AppColors.iceBluePrimary);
     expect(theme.progressIndicatorTheme.linearTrackColor, AppColors.ink700);
     expect(theme.progressIndicatorTheme.linearTrackColor, isNot(theme.scaffoldBackgroundColor));
   });
