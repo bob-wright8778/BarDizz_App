@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hockey_shot_tracker/audio/mic_level_controller.dart';
 import 'package:hockey_shot_tracker/scoreboard/all_time_scoreboard_store.dart';
 import 'package:hockey_shot_tracker/screens/session_screen.dart';
+import 'package:hockey_shot_tracker/theme/design_tokens.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _systemNavChannel = MethodChannel('hockey_shot_tracker/system_nav');
@@ -144,6 +145,39 @@ void main() {
       expect(find.byKey(const Key('shotDecrementButton')), findsNothing);
       expect(find.byKey(const Key('barDownIncrementButton')), findsNothing);
       expect(find.byKey(const Key('barDownDecrementButton')), findsNothing);
+    });
+  });
+
+  void expectBarDownGlow(TextStyle style) {
+    expect(style.color, AppColors.iceBluePressed);
+    expect(style.shadows, hasLength(2));
+    expect(style.shadows![0].color, AppColors.iceBluePrimary.withValues(alpha: 0.6));
+    expect(style.shadows![1].color, AppColors.iceBluePrimary.withValues(alpha: 0.35));
+  }
+
+  group('bar down design accents', () {
+    testWidgets(
+        'session bar down number uses the pressed ice-blue color with a primary-accent glow',
+        (tester) async {
+      await pumpScreen(tester);
+
+      expectBarDownGlow(textAt(tester, 'sessionBarDownCountText').style!);
+    });
+
+    testWidgets("all-time bar downs stat matches the session dial's color and glow",
+        (tester) async {
+      const store = AllTimeScoreboardStore();
+      await store.foldInSession(sessionShots: 1, sessionAutoBarDowns: 1, sessionManualBarDowns: 0);
+      await pumpScreen(tester, scoreboardStore: store);
+
+      expectBarDownGlow(textAt(tester, 'allTimeBarDownsValue').style!);
+    });
+
+    testWidgets('"THE BAR DOWN CHALLENGE" text uses the primary ice-blue accent', (tester) async {
+      await pumpScreen(tester);
+
+      final style = tester.widget<Text>(find.text('THE BAR DOWN CHALLENGE')).style!;
+      expect(style.color, AppColors.iceBluePrimary);
     });
   });
 
