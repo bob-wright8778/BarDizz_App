@@ -94,7 +94,10 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
   @override
   Widget build(BuildContext context) {
     final target = widget.controller.targetSamples;
-    final done = _recorded >= target;
+    final stage = widget.controller.stage;
+    final done = stage == CalibrationStage.eww && _recorded >= target;
+    final promptVerb = stage == CalibrationStage.shot ? 'Take a shot' : 'Say "Eww!"';
+    final recordLabel = stage == CalibrationStage.shot ? 'Record Shot' : 'Record Eww';
 
     return Scaffold(
       appBar: AppBar(title: const Text('Calibrate Detection')),
@@ -110,8 +113,8 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
                 children: [
                   Text(
                     done
-                        ? 'All $target sample shots recorded.'
-                        : 'Take a shot to record sample ${_recorded + 1} of $target.',
+                        ? 'All $target sample shots and $target Eww samples recorded.'
+                        : '$promptVerb to record sample ${_recorded + 1} of $target.',
                     key: const Key('calibrationStatusText'),
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineSmall,
@@ -144,9 +147,9 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
               const CircularProgressIndicator()
             else if (!done)
               ElevatedButton(
-                key: const Key('recordShotButton'),
+                key: const Key('recordSampleButton'),
                 onPressed: _recording ? null : _recordShot,
-                child: Text(_recording ? 'Listening…' : 'Record Shot'),
+                child: Text(_recording ? 'Listening…' : recordLabel),
               )
             else
               ElevatedButton(

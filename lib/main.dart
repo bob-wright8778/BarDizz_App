@@ -5,7 +5,6 @@ import 'audio/calibration_profile_store.dart';
 import 'audio/mic_level_controller.dart';
 import 'screens/calibration_screen.dart';
 import 'screens/debug_meter_screen.dart';
-import 'screens/history_screen.dart';
 import 'screens/session_screen.dart';
 import 'screens/settings_screen.dart';
 import 'theme/app_theme.dart';
@@ -32,10 +31,12 @@ class HockeyShotTrackerApp extends StatelessWidget {
 /// used before an initial calibration exists), then the home screen once one
 /// exists.
 class AppHomeGate extends StatefulWidget {
-  const AppHomeGate({super.key, CalibrationProfileStore? profileStore})
-      : profileStore = profileStore ?? const CalibrationProfileStore();
+  const AppHomeGate({super.key, CalibrationProfileStore? profileStore, CalibrationProfileStore? ewwProfileStore})
+      : profileStore = profileStore ?? const CalibrationProfileStore(),
+        ewwProfileStore = ewwProfileStore ?? const CalibrationProfileStore(key: ewwProfileKey);
 
   final CalibrationProfileStore profileStore;
+  final CalibrationProfileStore ewwProfileStore;
 
   @override
   State<AppHomeGate> createState() => _AppHomeGateState();
@@ -56,9 +57,14 @@ class _AppHomeGateState extends State<AppHomeGate> {
     _checkProfile();
   }
 
+  // Both profiles must be present -- calibration always saves the shot
+  // profile then the Eww one (LiveCalibrationController.finish()); treating
+  // only the shot profile as "calibrated" would let an interrupted
+  // mid-finish state slip past this gate and fail later, inside a session.
   Future<void> _checkProfile() async {
-    final has = await widget.profileStore.hasProfile();
-    if (mounted) setState(() => _hasProfile = has);
+    final hasShot = await widget.profileStore.hasProfile();
+    final hasEww = await widget.ewwProfileStore.hasProfile();
+    if (mounted) setState(() => _hasProfile = hasShot && hasEww);
   }
 
   void _openSettings(BuildContext context) {
@@ -69,12 +75,6 @@ class _AppHomeGateState extends State<AppHomeGate> {
           onDebugMeterTap: () => _openDebugMeter(context),
         ),
       ),
-    );
-  }
-
-  void _openHistory(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const HistoryScreen()),
     );
   }
 
@@ -117,7 +117,6 @@ class _AppHomeGateState extends State<AppHomeGate> {
     return SessionScreen(
       controller: _sessionController,
       onSettingsTap: () => _openSettings(context),
-      onHistoryTap: () => _openHistory(context),
     );
   }
 }

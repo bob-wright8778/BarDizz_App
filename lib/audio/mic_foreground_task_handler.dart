@@ -53,7 +53,7 @@ Future<void> startMicForegroundService() {
   return FlutterForegroundTask.startService(
     serviceTypes: const [ForegroundServiceTypes.microphone],
     notificationTitle: 'Hockey Shot Tracker',
-    notificationText: 'Listening for shots…',
+    notificationText: 'Listening for shots and bar downs…',
     callback: _startCallback,
   );
 }
@@ -62,11 +62,11 @@ Future<void> stopMicForegroundService() {
   return FlutterForegroundTask.stopService();
 }
 
-/// Refreshes the persistent notification text with the current
-/// auto-detected shot count, so the running total stays visible while the
-/// screen is locked or the app is backgrounded.
-Future<void> updateMicForegroundNotificationCount(int count) {
-  return FlutterForegroundTask.updateService(notificationText: 'Shots: $count');
+/// Refreshes the persistent notification text with the current shot/bar-down counts.
+Future<void> updateMicForegroundNotificationCounts({required int shots, required int barDowns}) {
+  return FlutterForegroundTask.updateService(
+    notificationText: 'Shots: $shots · Bar Downs: $barDowns',
+  );
 }
 
 @pragma('vm:entry-point')
