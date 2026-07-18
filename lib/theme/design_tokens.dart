@@ -1,38 +1,39 @@
 import 'package:flutter/material.dart';
 
-/// Color tokens from the "Hockey Shot Tracker Design System" handoff
-/// (design/Hockey Shot Practice System.zip) — final values, not placeholders.
+/// Color tokens from the "SHOTLOG DESIGN SYSTEM" handoff (design/ft9pro.pdf)
+/// — final values, not placeholders.
 class AppColors {
   const AppColors._();
 
   // Neutrals / ink scale, dark -> light.
-  static const ink900 = Color(0xFF0E0E10);
-  static const ink800 = Color(0xFF17171A);
-  static const ink700 = Color(0xFF1F1F23);
-  static const ink600 = Color(0xFF2A2A2E);
-  static const ink500 = Color(0xFF3A3A40);
-  static const ink400 = Color(0xFF55555C);
-  static const ink300 = Color(0xFF7A7A82);
-  static const ink200 = Color(0xFFA8A8AE);
-  static const ink100 = Color(0xFFD6D6DA);
-  static const ink50 = Color(0xFFF5F5F7);
+  static const ink900 = Color(0xFF101214);
+  static const ink800 = Color(0xFF181B1E);
+  static const ink700 = Color(0xFF202427);
+  static const ink600 = Color(0xFF2B3033);
+  static const ink500 = Color(0xFF3C4247);
+  static const ink400 = Color(0xFF585F64);
+  static const ink300 = Color(0xFF7E868C);
+  static const ink200 = Color(0xFFA9B0B5);
+  static const ink100 = Color(0xFFD8DCDE);
+  static const ink50 = Color(0xFFF2F4F5);
 
-  // Magenta -- primary accent.
-  static const magentaTint = Color(0xFFF7E4F0);
-  static const magentaLight = Color(0xFFE39CC8);
-  static const magentaPrimary = Color(0xFFC24FA0);
-  static const magentaPressed = Color(0xFF8A3671);
+  // Ice Blue -- primary accent.
+  static const iceBlueTint = Color(0xFFEAF4F8);
+  static const iceBlueLight = Color(0xFFB9DCE7);
+  static const iceBluePrimary = Color(0xFF6FA9C2);
+  static const iceBluePressed = Color(0xFF3E7590);
 
-  // Teal -- secondary accent.
-  static const tealTint = Color(0xFFE3FBF8);
-  static const tealLight = Color(0xFF9DE8E0);
-  static const tealSecondary = Color(0xFF3FC9BE);
-  static const tealPressed = Color(0xFF237871);
+  // Graphite -- secondary accent.
+  static const graphiteTint = Color(0xFFEAECED);
+  static const graphiteLight = Color(0xFF9AA1A6);
+  static const graphiteSecondary = Color(0xFF5B6670);
+  static const graphitePressed = Color(0xFF33383D);
 
-  // Semantic.
+  // Semantic. Error doubles as the logo's jet-red accent (net photo pipe
+  // color) -- not used elsewhere as a general UI accent, see design handoff.
   static const success = Color(0xFF4CAF6D);
   static const warning = Color(0xFFE8A23D);
-  static const error = Color(0xFFE0524A);
+  static const error = Color(0xFFC23B3B);
 
   static const pageBackground = ink900;
   static const cardSurface = ink800;

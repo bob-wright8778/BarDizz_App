@@ -5,36 +5,36 @@ import 'package:hockey_shot_tracker/theme/design_tokens.dart';
 void main() {
   group('AppColors', () {
     test('neutral ink scale matches the design handoff', () {
-      expect(AppColors.ink900, const Color(0xFF0E0E10));
-      expect(AppColors.ink800, const Color(0xFF17171A));
-      expect(AppColors.ink700, const Color(0xFF1F1F23));
-      expect(AppColors.ink600, const Color(0xFF2A2A2E));
-      expect(AppColors.ink500, const Color(0xFF3A3A40));
-      expect(AppColors.ink400, const Color(0xFF55555C));
-      expect(AppColors.ink300, const Color(0xFF7A7A82));
-      expect(AppColors.ink200, const Color(0xFFA8A8AE));
-      expect(AppColors.ink100, const Color(0xFFD6D6DA));
-      expect(AppColors.ink50, const Color(0xFFF5F5F7));
+      expect(AppColors.ink900, const Color(0xFF101214));
+      expect(AppColors.ink800, const Color(0xFF181B1E));
+      expect(AppColors.ink700, const Color(0xFF202427));
+      expect(AppColors.ink600, const Color(0xFF2B3033));
+      expect(AppColors.ink500, const Color(0xFF3C4247));
+      expect(AppColors.ink400, const Color(0xFF585F64));
+      expect(AppColors.ink300, const Color(0xFF7E868C));
+      expect(AppColors.ink200, const Color(0xFFA9B0B5));
+      expect(AppColors.ink100, const Color(0xFFD8DCDE));
+      expect(AppColors.ink50, const Color(0xFFF2F4F5));
     });
 
-    test('magenta (primary) scale matches the design handoff', () {
-      expect(AppColors.magentaTint, const Color(0xFFF7E4F0));
-      expect(AppColors.magentaLight, const Color(0xFFE39CC8));
-      expect(AppColors.magentaPrimary, const Color(0xFFC24FA0));
-      expect(AppColors.magentaPressed, const Color(0xFF8A3671));
+    test('ice blue (primary) scale matches the design handoff', () {
+      expect(AppColors.iceBlueTint, const Color(0xFFEAF4F8));
+      expect(AppColors.iceBlueLight, const Color(0xFFB9DCE7));
+      expect(AppColors.iceBluePrimary, const Color(0xFF6FA9C2));
+      expect(AppColors.iceBluePressed, const Color(0xFF3E7590));
     });
 
-    test('teal (secondary) scale matches the design handoff', () {
-      expect(AppColors.tealTint, const Color(0xFFE3FBF8));
-      expect(AppColors.tealLight, const Color(0xFF9DE8E0));
-      expect(AppColors.tealSecondary, const Color(0xFF3FC9BE));
-      expect(AppColors.tealPressed, const Color(0xFF237871));
+    test('graphite (secondary) scale matches the design handoff', () {
+      expect(AppColors.graphiteTint, const Color(0xFFEAECED));
+      expect(AppColors.graphiteLight, const Color(0xFF9AA1A6));
+      expect(AppColors.graphiteSecondary, const Color(0xFF5B6670));
+      expect(AppColors.graphitePressed, const Color(0xFF33383D));
     });
 
     test('semantic colors match the design handoff', () {
       expect(AppColors.success, const Color(0xFF4CAF6D));
       expect(AppColors.warning, const Color(0xFFE8A23D));
-      expect(AppColors.error, const Color(0xFFE0524A));
+      expect(AppColors.error, const Color(0xFFC23B3B));
     });
 
     test('page background and card surface are the darkest two neutrals', () {
