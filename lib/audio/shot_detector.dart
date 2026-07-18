@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-import 'amplitude.dart';
 import 'audio_constants.dart';
 import 'spectral_profile.dart';
 
@@ -51,17 +50,35 @@ class ShotDetector {
   /// Inputs: [chunk] one raw PCM16 audio buffer.
   /// Outputs: `true` if this chunk was counted as a shot.
   bool detect(Uint8List chunk) {
+    final features = computeChunkFeatures(
+      chunk,
+      amplitudeThreshold: config.amplitudeThreshold,
+      sampleRate: config.sampleRate,
+    );
+    return detectFromFeatures(features.amplitude, features.profile);
+  }
+
+  /// Same as [detect], but takes a chunk's amplitude/spectral profile
+  /// already computed by the caller -- lets a caller feeding the same chunk
+  /// to more than one detector compute those once and share them, instead
+  /// of each detector redoing the analysis.
+  ///
+  /// Inputs: [amplitude]/[profile] the chunk's precomputed features.
+  /// Outputs: `true` if this chunk was counted as a shot.
+  bool detectFromFeatures(double amplitude, List<double> profile) {
     final now = _now();
     if (_refractoryUntil != null && now.isBefore(_refractoryUntil!)) {
       return false;
     }
 
-    final amplitude = computeAmplitude(chunk);
-    if (amplitude < config.amplitudeThreshold) return false;
-
-    final profile = computeSpectralProfile(chunk, sampleRate: config.sampleRate);
-    final similarity = cosineSimilarity(profile, config.referenceProfile);
-    if (similarity < config.spectralMatchThreshold) return false;
+    final matched = matchesProfile(
+      amplitude,
+      profile,
+      amplitudeThreshold: config.amplitudeThreshold,
+      spectralMatchThreshold: config.spectralMatchThreshold,
+      referenceProfile: config.referenceProfile,
+    );
+    if (!matched) return false;
 
     _refractoryUntil = now.add(config.refractoryWindow);
     return true;

@@ -7,11 +7,16 @@ import 'calibration_profile_store.dart';
 import 'mic_capture_service.dart';
 import 'spectral_profile.dart';
 
+/// Which reference profile the wizard is currently recording samples for.
+/// The flow always runs [shot] to completion before moving to [eww].
+enum CalibrationStage { shot, eww }
+
 /// Seam between the calibration UI and real mic-capture plumbing, so the UI
 /// can be widget-tested with a fake implementation instead of touching
 /// platform channels.
 abstract class CalibrationController {
   int get targetSamples;
+  CalibrationStage get stage;
   Stream<int> get samplesRecorded;
 
   /// Live mic amplitude (0.0-1.0) while listening for a sample, so the UI
@@ -32,6 +37,7 @@ class LiveCalibrationController implements CalibrationController {
   LiveCalibrationController({
     MicCaptureService? captureService,
     CalibrationProfileStore? profileStore,
+    CalibrationProfileStore? ewwProfileStore,
     this.targetSamples = 5,
     // Lower than ShotDetectorConfig's 0.35: real-device testing showed a
     // deliberate clap only reaching ~0.10 through this mic pipeline (likely
@@ -40,7 +46,8 @@ class LiveCalibrationController implements CalibrationController {
     // needs real stick-puck recordings to tune properly (ticket 02 AC 5/6).
     this.amplitudeThreshold = 0.06,
   })  : _captureService = captureService ?? MicCaptureService(),
-        _profileStore = profileStore ?? const CalibrationProfileStore();
+        _profileStore = profileStore ?? const CalibrationProfileStore(),
+        _ewwProfileStore = ewwProfileStore ?? const CalibrationProfileStore(key: ewwProfileKey);
 
   @override
   final int targetSamples;
@@ -48,11 +55,16 @@ class LiveCalibrationController implements CalibrationController {
   final double amplitudeThreshold;
   final MicCaptureService _captureService;
   final CalibrationProfileStore _profileStore;
+  final CalibrationProfileStore _ewwProfileStore;
   final StreamController<int> _samplesController = StreamController<int>.broadcast();
   final StreamController<double> _levelsController = StreamController<double>.broadcast();
-  final List<List<double>> _sampleProfiles = [];
+  final List<List<double>> _shotProfiles = [];
+  final List<List<double>> _ewwProfiles = [];
   Stream<Uint8List>? _pcmStream;
   StreamSubscription<double>? _levelSubscription;
+
+  @override
+  CalibrationStage stage = CalibrationStage.shot;
 
   @override
   Stream<int> get samplesRecorded => _samplesController.stream;
@@ -78,17 +90,26 @@ class LiveCalibrationController implements CalibrationController {
     if (stream == null) {
       throw StateError('Call start() before recording samples.');
     }
-    if (_sampleProfiles.length >= targetSamples) return;
+    final profiles = stage == CalibrationStage.shot ? _shotProfiles : _ewwProfiles;
+    if (profiles.length >= targetSamples) return;
 
     final chunk = await stream.firstWhere((c) => computeAmplitude(c) >= amplitudeThreshold);
-    _sampleProfiles.add(computeSpectralProfile(chunk));
-    _samplesController.add(_sampleProfiles.length);
+    profiles.add(computeSpectralProfile(chunk));
+
+    if (stage == CalibrationStage.shot && _shotProfiles.length >= targetSamples) {
+      stage = CalibrationStage.eww;
+      _samplesController.add(0);
+    } else {
+      _samplesController.add(profiles.length);
+    }
   }
 
   @override
   Future<void> finish() async {
-    final profile = deriveReferenceProfile(_sampleProfiles);
-    await _profileStore.saveProfile(profile);
+    final shotProfile = deriveReferenceProfile(_shotProfiles);
+    final ewwProfile = deriveReferenceProfile(_ewwProfiles);
+    await _profileStore.saveProfile(shotProfile);
+    await _ewwProfileStore.saveProfile(ewwProfile);
     await _stopCapture();
   }
 

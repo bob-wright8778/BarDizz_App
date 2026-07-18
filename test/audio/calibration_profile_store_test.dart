@@ -36,5 +36,22 @@ void main() {
       await store.saveProfile([0.5, 0.5]);
       expect(await store.hasProfile(), isTrue);
     });
+
+    test('a custom key persists independently of the default key', () async {
+      const shotStore = CalibrationProfileStore();
+      const ewwStore = CalibrationProfileStore(key: ewwProfileKey);
+
+      await shotStore.saveProfile([0.1, 0.2]);
+
+      expect(await ewwStore.hasProfile(), isFalse);
+      expect(await ewwStore.loadProfile(), isNull);
+
+      await ewwStore.saveProfile([0.9, 0.8]);
+      final shotLoaded = await shotStore.loadProfile();
+      final ewwLoaded = await ewwStore.loadProfile();
+
+      expect(shotLoaded, [0.1, 0.2]);
+      expect(ewwLoaded, [0.9, 0.8]);
+    });
   });
 }

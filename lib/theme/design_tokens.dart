@@ -29,6 +29,12 @@ class AppColors {
   static const tealSecondary = Color(0xFF3FC9BE);
   static const tealPressed = Color(0xFF237871);
 
+  // Ice blue -- BAR DIZZ banner / Bar Down dial accent.
+  static const iceBlueTint = Color(0xFFE1F2FC);
+  static const iceBlueLight = Color(0xFF86CFF2);
+  static const iceBluePrimary = Color(0xFF2AA8E0);
+  static const iceBluePressed = Color(0xFF176F98);
+
   // Semantic.
   static const success = Color(0xFF4CAF6D);
   static const warning = Color(0xFFE8A23D);

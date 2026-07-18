@@ -16,6 +16,8 @@ class FakeCalibrationController implements CalibrationController {
   final StreamController<int> _samplesController = StreamController<int>.broadcast();
   final StreamController<double> _levelsController = StreamController<double>.broadcast();
   int _recorded = 0;
+  @override
+  CalibrationStage stage = CalibrationStage.shot;
   bool started = false;
   bool finished = false;
   bool cancelled = false;
@@ -40,6 +42,10 @@ class FakeCalibrationController implements CalibrationController {
   Future<void> recordSample() async {
     if (recordError != null) throw recordError!;
     _recorded++;
+    if (stage == CalibrationStage.shot && _recorded >= targetSamples) {
+      stage = CalibrationStage.eww;
+      _recorded = 0;
+    }
     _samplesController.add(_recorded);
   }
 
@@ -90,32 +96,48 @@ void main() {
   testWidgets('recording a sample advances the progress prompt', (tester) async {
     await pumpScreen(tester);
 
-    await tester.tap(find.byKey(const Key('recordShotButton')));
+    await tester.tap(find.byKey(const Key('recordSampleButton')));
     await tester.pumpAndSettle();
 
     expect(find.text('Take a shot to record sample 2 of 3.'), findsOneWidget);
   });
 
-  testWidgets('once all samples are recorded, shows Finish instead of Record Shot',
+  testWidgets(
+      'once shot samples are done, advances to the Eww step instead of finishing',
       (tester) async {
     await pumpScreen(tester);
 
     for (var i = 0; i < 3; i++) {
-      await tester.tap(find.byKey(const Key('recordShotButton')));
+      await tester.tap(find.byKey(const Key('recordSampleButton')));
       await tester.pumpAndSettle();
     }
 
-    expect(find.text('All 3 sample shots recorded.'), findsOneWidget);
+    expect(controller.stage, CalibrationStage.eww);
+    expect(find.text('Say "Eww!" to record sample 1 of 3.'), findsOneWidget);
+    expect(find.widgetWithText(ElevatedButton, 'Record Eww'), findsOneWidget);
+    expect(find.widgetWithText(ElevatedButton, 'Finish'), findsNothing);
+  });
+
+  testWidgets('once shot and Eww samples are both recorded, shows Finish',
+      (tester) async {
+    await pumpScreen(tester);
+
+    for (var i = 0; i < 6; i++) {
+      await tester.tap(find.byKey(const Key('recordSampleButton')));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('All 3 sample shots and 3 Eww samples recorded.'), findsOneWidget);
     expect(find.widgetWithText(ElevatedButton, 'Finish'), findsOneWidget);
-    expect(find.byKey(const Key('recordShotButton')), findsNothing);
+    expect(find.byKey(const Key('recordSampleButton')), findsNothing);
   });
 
   testWidgets('tapping Finish calls controller.finish and onComplete', (tester) async {
     var completed = false;
     await pumpScreen(tester, onComplete: () => completed = true);
 
-    for (var i = 0; i < 3; i++) {
-      await tester.tap(find.byKey(const Key('recordShotButton')));
+    for (var i = 0; i < 6; i++) {
+      await tester.tap(find.byKey(const Key('recordSampleButton')));
       await tester.pumpAndSettle();
     }
     await tester.tap(find.byKey(const Key('finishCalibrationButton')));
@@ -151,7 +173,7 @@ void main() {
     await pumpScreen(tester);
     controller.recordError = StateError('boom');
 
-    await tester.tap(find.byKey(const Key('recordShotButton')));
+    await tester.tap(find.byKey(const Key('recordSampleButton')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('calibrationErrorText')), findsOneWidget);

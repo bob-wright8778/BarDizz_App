@@ -10,6 +10,8 @@ class FakeMicLevelController implements MicLevelController {
       StreamController<double>.broadcast();
   final StreamController<int> _shotCountController =
       StreamController<int>.broadcast();
+  final StreamController<int> _barDownCountController =
+      StreamController<int>.broadcast();
   bool started = false;
   bool stopped = false;
 
@@ -18,6 +20,9 @@ class FakeMicLevelController implements MicLevelController {
 
   @override
   Stream<int> get shotCount => _shotCountController.stream;
+
+  @override
+  Stream<int> get barDownCount => _barDownCountController.stream;
 
   @override
   bool get isCapturing => started && !stopped;
@@ -36,9 +41,12 @@ class FakeMicLevelController implements MicLevelController {
 
   void emitShotCount(int count) => _shotCountController.add(count);
 
+  void emitBarDownCount(int count) => _barDownCountController.add(count);
+
   void dispose() {
     _controller.close();
     _shotCountController.close();
+    _barDownCountController.close();
   }
 }
 
