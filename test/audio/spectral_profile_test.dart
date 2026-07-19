@@ -44,12 +44,12 @@ void main() {
   });
 
   group('defaultShotSpectralProfile', () {
-    test('matches the values derived from real shot recordings on 2026-07-17', () {
+    test('matches the values derived from real shot recordings on 2026-07-18', () {
       // Locks in tool/derive_profile.dart's output against silent drift --
       // see spectral_profile.dart's doc comment for the derivation method.
       expect(
         defaultShotSpectralProfile,
-        [0.5121, 0.3161, 0.0727, 0.0588, 0.0183, 0.0220],
+        [0.5297, 0.2743, 0.0865, 0.0645, 0.0210, 0.0240],
       );
     });
 

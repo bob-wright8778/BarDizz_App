@@ -9,7 +9,21 @@ class BarDownDetectorConfig {
   const BarDownDetectorConfig({
     required this.ewwReferenceProfile,
     this.barHitAmplitudeThreshold = 0.08,
-    this.barHitSpectralMatchThreshold = 0.75,
+    // Raised from 0.75 on 2026-07-18 (ticket 03,
+    // tool/evaluate_bar_down_detector.dart against the 6 real bar-hits/59
+    // shots in test-audio/): the bar-hit stage alone can't discriminate a
+    // crossbar hit from a regular shot at 0.75 (100% false-positive rate --
+    // every shot clip also matched the bar-hit profile at least once). A
+    // spectral-threshold sweep (0.75-1.0) found 0.99 keeps 100% hit rate
+    // (6/6) while cutting the false-positive rate to 84.7% (50/59, down from
+    // 100%), a materially better trade than the more conservative 0.97
+    // (91.5% FP, same 6/6 hit rate) -- both sit inside a comfortable margin
+    // above the lowest observed real bar-hit's peak similarity (0.9971), but
+    // 0.99 buys more FP reduction at only ~0.007 less margin. Hit rate first
+    // starts dropping at 0.998 (4/6). n=6 real bar-hit samples is thin --
+    // see dev/contexts/hockey-shot-tracker.md in AI_Workspace for the full
+    // tradeoff table.
+    this.barHitSpectralMatchThreshold = 0.99,
     this.barHitReferenceProfile = defaultBarHitSpectralProfile,
     this.ewwAmplitudeThreshold = 0.08,
     this.ewwSpectralMatchThreshold = 0.75,
@@ -56,6 +70,15 @@ class BarDownDetector {
   final Now _now;
   DateTime? _windowUntil;
   DateTime? _refractoryUntil;
+
+  /// Number of times the bar-hit stage alone has matched (opened a confirm
+  /// window) since this detector was created -- unlike [detect]'s return
+  /// value (only `true` for a full confirmed bar down), this exposes the
+  /// bar-hit stage in isolation, for accuracy evaluation of just that stage
+  /// (`lib/audio/bar_down_clip_evaluator.dart`,
+  /// `tool/evaluate_bar_down_detector.dart`).
+  int get barHitMatches => _barHitMatches;
+  int _barHitMatches = 0;
 
   /// Feeds one raw PCM16 chunk, in stream order.
   ///
@@ -111,7 +134,10 @@ class BarDownDetector {
       spectralMatchThreshold: config.barHitSpectralMatchThreshold,
       referenceProfile: config.barHitReferenceProfile,
     );
-    if (isBarHit) _windowUntil = now.add(config.confirmWindow);
+    if (isBarHit) {
+      _windowUntil = now.add(config.confirmWindow);
+      _barHitMatches++;
+    }
     return false;
   }
 }
