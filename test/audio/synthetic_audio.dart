@@ -29,13 +29,26 @@ Uint8List sineWave(
 
 /// A synthetic chunk shaped to match [profile]: one tone per band, amplitude
 /// proportional to that band's target energy.
-Uint8List chunkMatching(List<double> profile) {
+Uint8List chunkMatching(List<double> profile, {int sampleRate = 16000}) {
   final components = [
     for (var i = 0; i < spectralBandCenters.length; i++)
       MapEntry(spectralBandCenters[i], math.sqrt(profile[i])),
   ];
-  return sineWave(components);
+  return sineWave(components, sampleRate: sampleRate);
 }
 
 /// A zeroed PCM16 buffer -- true digital silence.
 Uint8List silentChunk({int sampleCount = 320}) => Uint8List(sampleCount * 2);
+
+/// Joins PCM16 [chunks] end to end into one buffer, for building a synthetic
+/// clip out of several chunks (e.g. silence -> a shaped chunk -> silence).
+Uint8List concatChunks(List<Uint8List> chunks) {
+  final total = chunks.fold<int>(0, (sum, c) => sum + c.length);
+  final out = Uint8List(total);
+  var offset = 0;
+  for (final chunk in chunks) {
+    out.setRange(offset, offset + chunk.length, chunk);
+    offset += chunk.length;
+  }
+  return out;
+}

@@ -10,12 +10,23 @@ typedef Now = DateTime Function();
 class ShotDetectorConfig {
   const ShotDetectorConfig({
     // Validated against 43 real shot / 2 false-positive recordings on
-    // 2026-07-17 (tool/evaluate_detector.dart, tool/analyze_clips.dart):
-    // 100% hit rate at this value with the real-data-derived
-    // defaultShotSpectralProfile. A 20-combination sweep found no threshold
-    // that also improves the false-positive rate without a much larger hit
-    // to hit rate (see dev/contexts/hockey-shot-tracker.md in AI_Workspace)
-    // -- kept unchanged rather than trading real misses for it.
+    // 2026-07-17, then re-validated on 2026-07-18 against a 16x larger
+    // false-positive sample (59 real shots / 32 false positives --
+    // stick-handling clips, tool/evaluate_detector.dart,
+    // tool/analyze_clips.dart, tool/derive_profile.dart): 100% hit rate at
+    // this value with the real-data-derived defaultShotSpectralProfile. Both
+    // passes swept threshold combinations (20, then 112 across two profile
+    // variants) and found none that improves the false-positive rate without
+    // a much larger hit to hit rate -- kept unchanged rather than trading
+    // real misses for it. The 2026-07-18 pass's much bigger false-positive
+    // sample shows *why*: false-positive stick-handling contacts and real
+    // shot impacts have near-identical amplitude/spectral-similarity peak
+    // values (both classes span amp 0.15-0.46, spectralSim 0.7-0.99), so no
+    // threshold on this 2D feature space cleanly separates them -- a single
+    // isolated stick-puck tap during handling drills is acoustically the
+    // same kind of contact as a shot's impact moment. See
+    // dev/contexts/hockey-shot-tracker.md in AI_Workspace for the full sweep
+    // evidence.
     this.amplitudeThreshold = 0.08,
     this.refractoryWindow = const Duration(milliseconds: 250),
     this.spectralMatchThreshold = 0.75,

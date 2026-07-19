@@ -11,19 +11,28 @@ const List<double> spectralBandCenters = [500, 1000, 2000, 3000, 4000, 6000];
 
 /// Reference profile for a stick-on-puck impact's frequency shape
 /// (normalized relative energy per band in [spectralBandCenters]), derived
-/// from 43 real shot recordings on 2026-07-17 (`tool/derive_profile.dart`,
-/// averaging each clip's peak-amplitude chunk's spectral profile via
-/// [deriveReferenceProfile] — same math as per-user calibration). Real shots
-/// through this mic pipeline read as low-frequency-dominant, not the
-/// high-frequency "crack" a prior hand-picked placeholder assumed — that
-/// placeholder scored real shots at 0.12-0.30 similarity, well under the
-/// detection threshold. Not reachable in production live detection —
-/// `AppHomeGate` (`main.dart`) requires a per-user calibration profile to
-/// exist before the session screen is ever shown, so
-/// `LiveMicLevelController` always passes a calibrated `referenceProfile`
-/// (`mic_level_controller.dart`). This constant is the default `ShotDetector`
-/// falls back to when none is supplied — used by tests and the tuning tools.
-const List<double> defaultShotSpectralProfile = [0.5121, 0.3161, 0.0727, 0.0588, 0.0183, 0.0220];
+/// from 43 real shot recordings on 2026-07-17, re-derived on 2026-07-18 from
+/// an expanded set of 59 (`tool/derive_profile.dart`, averaging each clip's
+/// peak-amplitude chunk's spectral profile via [deriveReferenceProfile] —
+/// same math as per-user calibration). Real shots through this mic pipeline
+/// read as low-frequency-dominant, not the high-frequency "crack" a prior
+/// hand-picked placeholder assumed — that placeholder scored real shots at
+/// 0.12-0.30 similarity, well under the detection threshold. Not reachable in
+/// production live detection — `AppHomeGate` (`main.dart`) requires a
+/// per-user calibration profile to exist before the session screen is ever
+/// shown, so `LiveMicLevelController` always passes a calibrated
+/// `referenceProfile` (`mic_level_controller.dart`). This constant is the
+/// default `ShotDetector` falls back to when none is supplied — used by
+/// tests and the tuning tools.
+///
+/// The 2026-07-18 re-derivation folded in 16 additional shot clips from a
+/// second recording session and barely moved the values (e.g. band 0:
+/// 0.5121 -> 0.5297) — see `ShotDetectorConfig`'s doc comment for why this
+/// pass, despite a 16x larger false-positive sample, still could not improve
+/// false-positive rejection: isolated stick-handling contacts and real shot
+/// impacts are effectively indistinguishable at the single-chunk
+/// amplitude+spectral-shape level this profile feeds into.
+const List<double> defaultShotSpectralProfile = [0.5297, 0.2743, 0.0865, 0.0645, 0.0210, 0.0240];
 
 /// Reference profile for a bar/crossbar impact's frequency shape, derived the
 /// same way as [defaultShotSpectralProfile] (`tool/derive_profile.dart`) from
