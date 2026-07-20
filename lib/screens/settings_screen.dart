@@ -4,21 +4,17 @@ import '../scoreboard/all_time_scoreboard_store.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/app_card.dart';
 
-/// Settings screen: the calibration redo entry point (Acceptance criterion:
-/// calibration can be re-done at any time), the all-time sound-only vs.
-/// manually-added bar-down breakdown, the Reset Scoreboard action, plus an
-/// optional entry to the raw mic debug meter (ticket 01's capture
-/// proof-of-concept), which stopped being reachable once the session screen
-/// became the app's home.
+/// Settings screen: the all-time sound-only vs. manually-added bar-down
+/// breakdown, the Reset Scoreboard action, plus an optional entry to the raw
+/// mic debug meter (ticket 01's capture proof-of-concept), which stopped
+/// being reachable once the session screen became the app's home.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     super.key,
-    required this.onRecalibrate,
     this.onDebugMeterTap,
     this.scoreboardStore = const AllTimeScoreboardStore(),
   });
 
-  final VoidCallback onRecalibrate;
   final VoidCallback? onDebugMeterTap;
   final AllTimeScoreboardStore scoreboardStore;
 
@@ -85,12 +81,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ListTile(
-                    key: const Key('recalibrateTile'),
-                    leading: const Icon(Icons.tune),
-                    title: const Text('Redo calibration'),
-                    onTap: widget.onRecalibrate,
-                  ),
                   if (widget.onDebugMeterTap != null)
                     ListTile(
                       key: const Key('debugMeterTile'),

@@ -1,10 +1,8 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:hockey_shot_tracker/audio/spectral_profile.dart';
-
 /// Synthesizes a PCM16 chunk from one or more sine components, for feeding
-/// the detectors' amplitude/spectral-shape matching in tests without real
+/// the detectors' amplitude-gate/classification logic in tests without real
 /// audio.
 ///
 /// Inputs: [componentsFreqAmp] (frequency Hz, amplitude) pairs to sum;
@@ -25,16 +23,6 @@ Uint8List sineWave(
     bytes.setInt16(i * 2, (clamped * 32767).round(), Endian.little);
   }
   return bytes.buffer.asUint8List();
-}
-
-/// A synthetic chunk shaped to match [profile]: one tone per band, amplitude
-/// proportional to that band's target energy.
-Uint8List chunkMatching(List<double> profile, {int sampleRate = 16000}) {
-  final components = [
-    for (var i = 0; i < spectralBandCenters.length; i++)
-      MapEntry(spectralBandCenters[i], math.sqrt(profile[i])),
-  ];
-  return sineWave(components, sampleRate: sampleRate);
 }
 
 /// A zeroed PCM16 buffer -- true digital silence.

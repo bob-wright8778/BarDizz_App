@@ -3,31 +3,33 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hockey_shot_tracker/audio/bar_down_detector.dart';
-import 'package:hockey_shot_tracker/audio/calibration_profile_store.dart';
+import 'package:hockey_shot_tracker/audio/classifier_detector.dart';
 import 'package:hockey_shot_tracker/audio/mic_capture_service.dart';
 import 'package:hockey_shot_tracker/audio/mic_level_controller.dart';
-import 'package:hockey_shot_tracker/audio/shot_detector.dart';
-import 'package:hockey_shot_tracker/audio/spectral_profile.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'synthetic_audio.dart';
 
-// Mid-band-dominant, deliberately distinguishable from both
-// defaultBarHitSpectralProfile (low-frequency-dominant) and _testEwwProfile
-// (high-frequency-dominant) below, so a synthetic chunk built for one
-// detector's profile never crosses the other's match threshold.
-const _testShotProfile = [0.05, 0.05, 0.70, 0.10, 0.05, 0.05];
+/// Deterministic stand-in for the real 200-tree classifier, keyed off a
+/// chunk's amplitude so test chunks (built via [sineWave]'s amplitude
+/// parameter) can pick a specific label without depending on real Goertzel
+/// band shaping -- mirrors [classifier_detector_test.dart]'s `_FakeClassifier`
+/// but as a plain function, since these tests only need one fixed rule, not
+/// a call-ordered sequence.
+// A sine wave's RMS amplitude tops out at peak/sqrt(2) (~0.707), so these
+// thresholds are picked to fall well inside that reachable range (peaks of
+// 0.95/0.6/0.35 below give RMS ~0.67/~0.42/~0.25 respectively) rather than at
+// round fractions of 1.0, which a sine chunk could never actually reach.
+String _fakeClassify(List<double> features) {
+  final amplitude = features[6];
+  if (amplitude > 0.55) return 'shot';
+  if (amplitude > 0.35) return 'bar-hit';
+  if (amplitude > 0.15) return 'eww';
+  return 'background-quiet';
+}
 
-// High-frequency-weighted, the opposite end of the spectrum from
-// defaultBarHitSpectralProfile's low-frequency-dominant impact shape --
-// stands in for a per-user calibrated "Eww" profile (same as
-// bar_down_detector_test.dart's synthetic profile).
-const _testEwwProfile = [0.02, 0.03, 0.05, 0.10, 0.30, 0.50];
-
-Uint8List _shotChunk() => chunkMatching(_testShotProfile);
-Uint8List _barHitChunk() => chunkMatching(defaultBarHitSpectralProfile);
-Uint8List _ewwChunk() => chunkMatching(_testEwwProfile);
+Uint8List _shotChunk() => sineWave([const MapEntry(1000.0, 0.95)]);
+Uint8List _barHitChunk() => sineWave([const MapEntry(1000.0, 0.6)]);
+Uint8List _ewwChunk() => sineWave([const MapEntry(1000.0, 0.35)]);
 Uint8List _silence() => silentChunk();
 
 /// Stands in for [MicCaptureService], driven by a controllable PCM stream
@@ -61,7 +63,7 @@ class _FakeMicCaptureService extends MicCaptureService {
 }
 
 /// Flushes pending microtasks/stream deliveries so a just-emitted chunk has
-/// been processed by both detector subscriptions before assertions run.
+/// been processed by the detector before assertions run.
 Future<void> _flush() => Future<void>.delayed(Duration.zero);
 
 void main() {
@@ -76,7 +78,6 @@ void main() {
   late bool serviceRunning;
 
   setUp(() {
-    SharedPreferences.setMockInitialValues({});
     mdCalls = [];
     serviceRunning = false;
     FlutterForegroundTask.skipServiceResponseCheck = true;
@@ -118,46 +119,80 @@ void main() {
     return args['notificationContentText'] as String?;
   }
 
-  group('LiveMicLevelController bar-down wiring', () {
-    test('shot and bar-down detection run independently on the same stream', () async {
+  // windowDuration matches one emitted chunk (sineWave's default 320
+  // samples/20ms @16kHz), so every `emit` completes and classifies exactly
+  // one window, mirroring the old tests' one-chunk-per-emit convention.
+  ClassifierDetector buildDetector(DateTime Function() now) => ClassifierDetector(
+    config: const ClassifierDetectorConfig(windowDuration: Duration(milliseconds: 20)),
+    now: now,
+    classify: _fakeClassify,
+  );
+
+  group('LiveMicLevelController classifier wiring', () {
+    test('a shot classification increments the shot count', () async {
       final capture = _FakeMicCaptureService();
-      final controller = LiveMicLevelController(
-        captureService: capture,
-        shotDetector: ShotDetector(config: const ShotDetectorConfig(referenceProfile: _testShotProfile)),
-        barDownDetector: BarDownDetector(
-          config: const BarDownDetectorConfig(ewwReferenceProfile: _testEwwProfile),
-        ),
-      );
+      var now = DateTime(2026);
+      final controller = LiveMicLevelController(captureService: capture, detector: buildDetector(() => now));
+
+      final shotCounts = <int>[];
+      controller.shotCount.listen(shotCounts.add);
+      await controller.start();
+
+      capture.emit(_shotChunk());
+      await _flush();
+
+      expect(shotCounts, [1]);
+    });
+
+    test('a bar-hit followed by a confirming eww increments the bar-down count, not the shot count', () async {
+      final capture = _FakeMicCaptureService();
+      var now = DateTime(2026);
+      final controller = LiveMicLevelController(captureService: capture, detector: buildDetector(() => now));
 
       final shotCounts = <int>[];
       final barDownCounts = <int>[];
       controller.shotCount.listen(shotCounts.add);
       controller.barDownCount.listen(barDownCounts.add);
+      await controller.start();
 
+      capture.emit(_barHitChunk());
+      await _flush();
+      now = now.add(const Duration(milliseconds: 300)); // past the 250ms refractory
+      capture.emit(_ewwChunk());
+      await _flush();
+
+      expect(barDownCounts, [1]);
+      expect(shotCounts, isEmpty);
+    });
+
+    test('shot and bar-down detection both run over the same stream', () async {
+      final capture = _FakeMicCaptureService();
+      var now = DateTime(2026);
+      final controller = LiveMicLevelController(captureService: capture, detector: buildDetector(() => now));
+
+      final shotCounts = <int>[];
+      final barDownCounts = <int>[];
+      controller.shotCount.listen(shotCounts.add);
+      controller.barDownCount.listen(barDownCounts.add);
       await controller.start();
 
       capture.emit(_shotChunk());
       await _flush();
+      now = now.add(const Duration(milliseconds: 300));
       capture.emit(_barHitChunk());
       await _flush();
+      now = now.add(const Duration(milliseconds: 300));
       capture.emit(_ewwChunk());
       await _flush();
 
       expect(shotCounts, [1], reason: 'the shot is its own counted event');
-      expect(barDownCounts, [1], reason: 'the bar-hit+Eww is a separate counted event');
+      expect(barDownCounts, [1], reason: 'the bar-hit+eww is a separate counted event');
     });
 
-    test('a bar-hit with no confirming Eww never increments the bar-down count', () async {
+    test('a bar-hit with no confirming eww before the confirm window expires never counts', () async {
       final capture = _FakeMicCaptureService();
       var now = DateTime(2026);
-      final controller = LiveMicLevelController(
-        captureService: capture,
-        shotDetector: ShotDetector(config: const ShotDetectorConfig(referenceProfile: _testShotProfile)),
-        barDownDetector: BarDownDetector(
-          config: const BarDownDetectorConfig(ewwReferenceProfile: _testEwwProfile),
-          now: () => now,
-        ),
-      );
+      final controller = LiveMicLevelController(captureService: capture, detector: buildDetector(() => now));
 
       final barDownCounts = <int>[];
       controller.barDownCount.listen(barDownCounts.add);
@@ -165,62 +200,60 @@ void main() {
 
       capture.emit(_barHitChunk());
       await _flush();
-      now = now.add(const Duration(seconds: 3));
-      capture.emit(_silence());
+      now = now.add(const Duration(seconds: 3)); // past the 2s confirm window
+      capture.emit(_ewwChunk());
       await _flush();
 
       expect(barDownCounts, isEmpty);
     });
 
-    test('the live bar-down count is built from the default bar-hit profile and the persisted Eww profile',
-        () async {
-      await const CalibrationProfileStore().saveProfile(_testShotProfile);
-      await CalibrationProfileStore(key: ewwProfileKey).saveProfile(_testEwwProfile);
-
+    test('background-quiet classifications (e.g. silence) never count as anything', () async {
       final capture = _FakeMicCaptureService();
-      final controller = LiveMicLevelController(captureService: capture);
+      var now = DateTime(2026);
+      final controller = LiveMicLevelController(captureService: capture, detector: buildDetector(() => now));
 
+      final shotCounts = <int>[];
       final barDownCounts = <int>[];
+      controller.shotCount.listen(shotCounts.add);
       controller.barDownCount.listen(barDownCounts.add);
       await controller.start();
 
-      capture.emit(_barHitChunk());
-      await _flush();
-      capture.emit(_ewwChunk());
+      capture.emit(_silence());
       await _flush();
 
-      expect(barDownCounts, [1]);
-    });
-
-    test('throws if no Eww calibration profile has been saved', () async {
-      await const CalibrationProfileStore().saveProfile(_testShotProfile);
-      final capture = _FakeMicCaptureService();
-      final controller = LiveMicLevelController(captureService: capture);
-
-      await expectLater(controller.start(), throwsA(isA<StateError>()));
+      expect(shotCounts, isEmpty);
+      expect(barDownCounts, isEmpty);
     });
 
     test('the persistent notification shows both the shot count and the bar-down count', () async {
       final capture = _FakeMicCaptureService();
-      final controller = LiveMicLevelController(
-        captureService: capture,
-        shotDetector: ShotDetector(config: const ShotDetectorConfig(referenceProfile: _testShotProfile)),
-        barDownDetector: BarDownDetector(
-          config: const BarDownDetectorConfig(ewwReferenceProfile: _testEwwProfile),
-        ),
-      );
-
+      var now = DateTime(2026);
+      final controller = LiveMicLevelController(captureService: capture, detector: buildDetector(() => now));
       await controller.start();
 
       capture.emit(_shotChunk());
       await _flush();
       expect(lastNotificationText(), 'Shots: 1 · Bar Downs: 0');
 
+      now = now.add(const Duration(milliseconds: 300));
       capture.emit(_barHitChunk());
       await _flush();
+      expect(lastNotificationText(), 'Shots: 1 · Bar Downs: 0', reason: 'a lone bar-hit does not update the notification');
+
+      now = now.add(const Duration(milliseconds: 300));
       capture.emit(_ewwChunk());
       await _flush();
       expect(lastNotificationText(), 'Shots: 1 · Bar Downs: 1');
+    });
+
+    test('a default LiveMicLevelController (no detector injected) starts without requiring any calibration profile',
+        () async {
+      final capture = _FakeMicCaptureService();
+      final controller = LiveMicLevelController(captureService: capture);
+
+      await controller.start();
+
+      expect(controller.isCapturing, isTrue);
     });
   });
 }
