@@ -37,8 +37,7 @@ class AllTimeScoreboard {
   }
 }
 
-/// Persists the all-time cumulative scoreboard locally via [SharedPreferences],
-/// same pattern as [CalibrationProfileStore].
+/// Persists the all-time cumulative scoreboard locally via [SharedPreferences].
 class AllTimeScoreboardStore {
   const AllTimeScoreboardStore();
 

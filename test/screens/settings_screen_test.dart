@@ -9,23 +9,9 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('tapping Redo calibration calls onRecalibrate', (tester) async {
-    var tapped = false;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: SettingsScreen(onRecalibrate: () => tapped = true),
-      ),
-    );
-
-    await tester.tap(find.byKey(const Key('recalibrateTile')));
-    await tester.pump();
-
-    expect(tapped, isTrue);
-  });
-
   testWidgets('no debug meter entry when onDebugMeterTap is not provided', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(home: SettingsScreen(onRecalibrate: () {})),
+      MaterialApp(home: const SettingsScreen()),
     );
 
     expect(find.byKey(const Key('debugMeterTile')), findsNothing);
@@ -35,7 +21,7 @@ void main() {
     var tapped = false;
     await tester.pumpWidget(
       MaterialApp(
-        home: SettingsScreen(onRecalibrate: () {}, onDebugMeterTap: () => tapped = true),
+        home: SettingsScreen(onDebugMeterTap: () => tapped = true),
       ),
     );
 
@@ -52,7 +38,7 @@ void main() {
       await store.foldInSession(sessionShots: 20, sessionAutoBarDowns: 5, sessionManualBarDowns: 3);
 
       await tester.pumpWidget(
-        MaterialApp(home: SettingsScreen(onRecalibrate: () {}, scoreboardStore: store)),
+        MaterialApp(home: SettingsScreen(scoreboardStore: store)),
       );
       await tester.pumpAndSettle();
 
@@ -70,7 +56,7 @@ void main() {
       const store = AllTimeScoreboardStore();
 
       await tester.pumpWidget(
-        MaterialApp(home: SettingsScreen(onRecalibrate: () {}, scoreboardStore: store)),
+        MaterialApp(home: SettingsScreen(scoreboardStore: store)),
       );
       await tester.pumpAndSettle();
 
@@ -88,7 +74,7 @@ void main() {
       await store.foldInSession(sessionShots: 20, sessionAutoBarDowns: 5, sessionManualBarDowns: 3);
 
       await tester.pumpWidget(
-        MaterialApp(home: SettingsScreen(onRecalibrate: () {}, scoreboardStore: store)),
+        MaterialApp(home: SettingsScreen(scoreboardStore: store)),
       );
       await tester.pumpAndSettle();
 
@@ -105,7 +91,7 @@ void main() {
       await store.foldInSession(sessionShots: 20, sessionAutoBarDowns: 5, sessionManualBarDowns: 3);
 
       await tester.pumpWidget(
-        MaterialApp(home: SettingsScreen(onRecalibrate: () {}, scoreboardStore: store)),
+        MaterialApp(home: SettingsScreen(scoreboardStore: store)),
       );
       await tester.pumpAndSettle();
 
@@ -127,7 +113,7 @@ void main() {
       await store.foldInSession(sessionShots: 20, sessionAutoBarDowns: 5, sessionManualBarDowns: 3);
 
       await tester.pumpWidget(
-        MaterialApp(home: SettingsScreen(onRecalibrate: () {}, scoreboardStore: store)),
+        MaterialApp(home: SettingsScreen(scoreboardStore: store)),
       );
       await tester.pumpAndSettle();
 

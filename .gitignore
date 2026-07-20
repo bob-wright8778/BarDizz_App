@@ -37,5 +37,9 @@ ios/Runner.xcworkspace/
 design/
 
 # Real personal audio recordings used for shot-detector tuning (see
-# tool/evaluate_detector.dart, tool/analyze_clips.dart, tool/derive_profile.dart)
+# tool/derive_profile.dart)
 test-audio/
+
+# Python training/validation pipeline for the on-device classifier (manifest,
+# venv, generated prediction dumps) — scratch workspace, not part of the app
+tool/ml_investigation/
