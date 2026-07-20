@@ -68,12 +68,21 @@ class LiveMicLevelController implements MicLevelController {
     await ensureNotificationPermission();
     await startMicForegroundService();
 
-    _shotCount = 0;
-    _barDownCount = 0;
-    final pcmStream = await _captureService.start();
-    _levelSubscription =
-        _captureService.amplitudeStream(pcmStream).listen(_levelController.add);
-    _detectionSubscription = pcmStream.listen(_onChunk);
+    // start() must be atomic: if capture fails to come up after the
+    // foreground service is already running, tear the service back down
+    // rather than leaving it orphaned with nothing left to stop it (the
+    // caller only ever calls stop() once it believes start() succeeded).
+    try {
+      _shotCount = 0;
+      _barDownCount = 0;
+      final pcmStream = await _captureService.start();
+      _levelSubscription =
+          _captureService.amplitudeStream(pcmStream).listen(_levelController.add);
+      _detectionSubscription = pcmStream.listen(_onChunk);
+    } catch (e) {
+      await stopMicForegroundService();
+      rethrow;
+    }
   }
 
   void _onChunk(Uint8List chunk) {
