@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hockey_shot_tracker/audio/mic_level_controller.dart';
 import 'package:hockey_shot_tracker/scoreboard/all_time_scoreboard_store.dart';
+import 'package:hockey_shot_tracker/scoreboard/high_score_store.dart';
 import 'package:hockey_shot_tracker/screens/session_screen.dart';
 import 'package:hockey_shot_tracker/theme/design_tokens.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -98,6 +99,12 @@ void main() {
   setUp(() {
     controller = FakeMicLevelController();
     SharedPreferences.setMockInitialValues({});
+    // Widen past the default 800x600 test surface so the action button isn't clipped below the fold.
+    final view = TestWidgetsFlutterBinding.instance.platformDispatcher.views.first;
+    view.physicalSize = const Size(800, 1600);
+    view.devicePixelRatio = 1.0;
+    addTearDown(view.resetPhysicalSize);
+    addTearDown(view.resetDevicePixelRatio);
   });
 
   tearDown(() {
@@ -107,6 +114,7 @@ void main() {
   Future<void> pumpScreen(
     WidgetTester tester, {
     AllTimeScoreboardStore scoreboardStore = const AllTimeScoreboardStore(),
+    HighScoreStore highScoreStore = const HighScoreStore(),
     Future<void> Function()? onSettingsTap,
   }) async {
     await tester.pumpWidget(
@@ -114,6 +122,7 @@ void main() {
         home: SessionScreen(
           controller: controller,
           scoreboardStore: scoreboardStore,
+          highScoreStore: highScoreStore,
           onSettingsTap: onSettingsTap,
         ),
       ),
@@ -237,6 +246,119 @@ void main() {
 
       final style = tester.widget<Text>(find.text('THE BAR DOWN CHALLENGE')).style!;
       expect(style.color, AppColors.iceBluePrimary);
+    });
+  });
+
+  group('high score card', () {
+    testWidgets('shows a zeroed high score before any session has ever been saved',
+        (tester) async {
+      await pumpScreen(tester);
+
+      expect(textAt(tester, 'highScoreShotsValue').data, '0');
+      expect(textAt(tester, 'highScoreBarDownsValue').data, '0');
+      expect(textAt(tester, 'highScoreRateValue').data, '0.0%');
+    });
+
+    testWidgets('shows the persisted high score on load', (tester) async {
+      const highScoreStore = HighScoreStore();
+      await highScoreStore.considerSession(
+        sessionShots: 20,
+        sessionAutoBarDowns: 15,
+        sessionManualBarDowns: 5,
+      );
+
+      await pumpScreen(tester, highScoreStore: highScoreStore);
+
+      expect(textAt(tester, 'highScoreShotsValue').data, '20');
+      expect(textAt(tester, 'highScoreBarDownsValue').data, '20');
+      expect(textAt(tester, 'highScoreRateValue').data, '100.0%');
+    });
+
+    testWidgets('a winning Save Session updates the displayed high score', (tester) async {
+      const highScoreStore = HighScoreStore();
+      await highScoreStore.considerSession(
+        sessionShots: 10,
+        sessionAutoBarDowns: 5,
+        sessionManualBarDowns: 0,
+      );
+
+      await pumpScreen(tester, highScoreStore: highScoreStore);
+      expect(textAt(tester, 'highScoreRateValue').data, '50.0%');
+
+      controller.emitShotCount(4);
+      controller.emitBarDownCount(4);
+      await pumpAfterStreamEvent(tester);
+
+      await tester.tap(find.byKey(const Key('sessionActionButton')));
+      await tester.pumpAndSettle();
+
+      expect(textAt(tester, 'highScoreShotsValue').data, '4');
+      expect(textAt(tester, 'highScoreRateValue').data, '100.0%');
+
+      final loaded = await highScoreStore.load();
+      expect(loaded.shots, 4);
+    });
+
+    testWidgets('a losing Save Session leaves the displayed high score unchanged',
+        (tester) async {
+      const highScoreStore = HighScoreStore();
+      await highScoreStore.considerSession(
+        sessionShots: 10,
+        sessionAutoBarDowns: 10,
+        sessionManualBarDowns: 0,
+      );
+
+      await pumpScreen(tester, highScoreStore: highScoreStore);
+
+      controller.emitShotCount(10);
+      controller.emitBarDownCount(1);
+      await pumpAfterStreamEvent(tester);
+
+      await tester.tap(find.byKey(const Key('sessionActionButton')));
+      await tester.pumpAndSettle();
+
+      expect(textAt(tester, 'highScoreShotsValue').data, '10', reason: 'the 100% high score stands');
+      expect(textAt(tester, 'highScoreRateValue').data, '100.0%');
+    });
+
+    testWidgets(
+        'disposing while capturing folds the in-progress session into the high score too',
+        (tester) async {
+      const highScoreStore = HighScoreStore();
+      await pumpScreen(tester, highScoreStore: highScoreStore);
+
+      controller.emitShotCount(4);
+      controller.emitBarDownCount(4);
+      await pumpAfterStreamEvent(tester);
+
+      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+
+      final loaded = await highScoreStore.load();
+      expect(loaded.shots, 4);
+      expect(loaded.barDowns, 4);
+    });
+
+    testWidgets('returning from settings reloads the high score without needing a save',
+        (tester) async {
+      const highScoreStore = HighScoreStore();
+      await highScoreStore.considerSession(
+        sessionShots: 20,
+        sessionAutoBarDowns: 10,
+        sessionManualBarDowns: 0,
+      );
+
+      await pumpScreen(
+        tester,
+        highScoreStore: highScoreStore,
+        onSettingsTap: () => highScoreStore.reset(),
+      );
+      expect(textAt(tester, 'highScoreShotsValue').data, '20');
+
+      await tester.tap(find.byKey(const Key('settingsButton')));
+      await tester.pumpAndSettle();
+
+      expect(textAt(tester, 'highScoreShotsValue').data, '0');
+      expect(textAt(tester, 'highScoreRateValue').data, '0.0%');
     });
   });
 

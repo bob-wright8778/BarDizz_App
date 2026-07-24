@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hockey_shot_tracker/scoreboard/all_time_scoreboard_store.dart';
+import 'package:hockey_shot_tracker/scoreboard/high_score_store.dart';
 import 'package:hockey_shot_tracker/screens/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -132,6 +133,109 @@ void main() {
       final manual = tester.widget<Text>(find.byKey(const Key('manualBarDownsValue')));
       expect(soundOnly.data, contains('0'));
       expect(manual.data, contains('0'));
+    });
+  });
+
+  group('Reset High Score', () {
+    testWidgets('tapping Reset High Score opens a confirmation dialog without resetting yet',
+        (tester) async {
+      const highScoreStore = HighScoreStore();
+      await highScoreStore.considerSession(
+        sessionShots: 20,
+        sessionAutoBarDowns: 10,
+        sessionManualBarDowns: 0,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: SettingsScreen(highScoreStore: highScoreStore)),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('resetHighScoreTile')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      final loaded = await highScoreStore.load();
+      expect(loaded.shots, 20);
+    });
+
+    testWidgets('cancelling the confirmation dialog leaves the high score untouched', (tester) async {
+      const highScoreStore = HighScoreStore();
+      await highScoreStore.considerSession(
+        sessionShots: 20,
+        sessionAutoBarDowns: 10,
+        sessionManualBarDowns: 0,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: SettingsScreen(highScoreStore: highScoreStore)),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('resetHighScoreTile')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('resetHighScoreCancelButton')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      final loaded = await highScoreStore.load();
+      expect(loaded.shots, 20);
+    });
+
+    testWidgets('confirming the dialog zeroes the persisted high score', (tester) async {
+      const highScoreStore = HighScoreStore();
+      await highScoreStore.considerSession(
+        sessionShots: 20,
+        sessionAutoBarDowns: 10,
+        sessionManualBarDowns: 0,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: SettingsScreen(highScoreStore: highScoreStore)),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('resetHighScoreTile')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('resetHighScoreConfirmButton')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      final loaded = await highScoreStore.load();
+      expect(loaded.shots, 0);
+      expect(loaded.autoBarDowns, 0);
+      expect(loaded.manualBarDowns, 0);
+    });
+
+    testWidgets('resetting the high score does not touch the separately-persisted all-time totals',
+        (tester) async {
+      const scoreboardStore = AllTimeScoreboardStore();
+      const highScoreStore = HighScoreStore();
+      await scoreboardStore.foldInSession(
+        sessionShots: 20,
+        sessionAutoBarDowns: 5,
+        sessionManualBarDowns: 3,
+      );
+      await highScoreStore.considerSession(
+        sessionShots: 20,
+        sessionAutoBarDowns: 10,
+        sessionManualBarDowns: 0,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SettingsScreen(scoreboardStore: scoreboardStore, highScoreStore: highScoreStore),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('resetHighScoreTile')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('resetHighScoreConfirmButton')));
+      await tester.pumpAndSettle();
+
+      final loadedAllTime = await scoreboardStore.load();
+      expect(loadedAllTime.shots, 20, reason: 'resetting the high score must not touch all-time totals');
     });
   });
 }

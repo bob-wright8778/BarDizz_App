@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../audio/mic_level_controller.dart';
 import '../scoreboard/all_time_scoreboard_store.dart';
+import '../scoreboard/high_score_store.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/app_card.dart';
 
@@ -19,20 +20,23 @@ const _systemNavChannel = MethodChannel('hockey_shot_tracker/system_nav');
 /// capture starts automatically when the screen loads and keeps running for
 /// the life of the screen. Live auto-detected shot and bar-down dials scoped
 /// to the current session (each correctable via +/-) update live, along with
-/// an all-time totals strip. "Save Session" folds the session's current
-/// counts into the persisted all-time scoreboard and resets both dials to 0
-/// without stopping capture.
+/// a persisted high-score card and an all-time totals strip. "Save Session"
+/// folds the session's current counts into the persisted all-time scoreboard,
+/// checks them against the high score, and resets both dials to 0 without
+/// stopping capture.
 class SessionScreen extends StatefulWidget {
   const SessionScreen({
     super.key,
     required this.controller,
     this.onSettingsTap,
     this.scoreboardStore = const AllTimeScoreboardStore(),
+    this.highScoreStore = const HighScoreStore(),
   });
 
   final MicLevelController controller;
   final Future<void> Function()? onSettingsTap;
   final AllTimeScoreboardStore scoreboardStore;
+  final HighScoreStore highScoreStore;
 
   @override
   State<SessionScreen> createState() => _SessionScreenState();
@@ -54,9 +58,12 @@ class _SessionScreenState extends State<SessionScreen> {
 
   AllTimeScoreboard _persisted =
       const AllTimeScoreboard(shots: 0, autoBarDowns: 0, manualBarDowns: 0);
-  // Set once a save has applied a fresher scoreboard than the initial load
+  HighScoreSession _highScore =
+      const HighScoreSession(shots: 0, autoBarDowns: 0, manualBarDowns: 0);
+  // Set once a save has applied fresher persisted state than the initial load
   // could have seen, so that slow-resolving load doesn't clobber it (both
-  // fire unawaited from initState and race each other).
+  // fire unawaited from initState and race each other). Shared by the
+  // all-time and high-score loads -- both race the same save.
   bool _initialLoadStale = false;
 
   int get _sessionBarDowns => _sessionAutoBarDowns + _sessionManualBarDowns;
@@ -79,6 +86,7 @@ class _SessionScreenState extends State<SessionScreen> {
     _shotCountSubscription = widget.controller.shotCount.listen(_onAutoShotCount);
     _barDownCountSubscription = widget.controller.barDownCount.listen(_onAutoBarDownCount);
     _loadScoreboard();
+    _loadHighScore();
     _startCapture();
   }
 
@@ -87,13 +95,24 @@ class _SessionScreenState extends State<SessionScreen> {
     if (mounted && !_initialLoadStale) setState(() => _persisted = loaded);
   }
 
-  /// Reloads the persisted scoreboard after Settings closes.
+  Future<void> _loadHighScore() async {
+    final loaded = await widget.highScoreStore.load();
+    if (mounted && !_initialLoadStale) setState(() => _highScore = loaded);
+  }
+
+  /// Reloads the persisted scoreboard and high score after Settings closes.
   Future<void> _handleSettingsTap() async {
     await widget.onSettingsTap?.call();
-    // Not _loadScoreboard(): its _initialLoadStale guard is permanently true
-    // after the first save and would silently no-op this reload.
+    // Not _loadScoreboard()/_loadHighScore(): their _initialLoadStale guard is
+    // permanently true after the first save and would silently no-op this reload.
     final loaded = await widget.scoreboardStore.load();
-    if (mounted) setState(() => _persisted = loaded);
+    final loadedHighScore = await widget.highScoreStore.load();
+    if (mounted) {
+      setState(() {
+        _persisted = loaded;
+        _highScore = loadedHighScore;
+      });
+    }
   }
 
   @override
@@ -111,18 +130,38 @@ class _SessionScreenState extends State<SessionScreen> {
       // so that save's own continuation (see _saveSession's finally block)
       // is responsible for folding whatever's still live once it settles,
       // rather than racing it here.
-      if (!_saving) _foldLiveSessionIntoScoreboard();
+      if (!_saving) _foldLiveSessionIntoStores();
     }
     super.dispose();
   }
 
   /// Fire-and-forget fold of whatever's currently live; shared by dispose() and _saveSession's finally block.
-  void _foldLiveSessionIntoScoreboard() {
-    widget.scoreboardStore.foldInSession(
+  void _foldLiveSessionIntoStores() {
+    _foldSessionIntoStores(
       sessionShots: _sessionShots,
       sessionAutoBarDowns: _sessionAutoBarDowns,
       sessionManualBarDowns: _sessionManualBarDowns,
     );
+  }
+
+  /// Inputs: a session's final shot/auto/manual bar-down counts.
+  /// Outputs: the updated all-time scoreboard and high score after folding the session into both stores.
+  Future<({AllTimeScoreboard scoreboard, HighScoreSession highScore})> _foldSessionIntoStores({
+    required int sessionShots,
+    required int sessionAutoBarDowns,
+    required int sessionManualBarDowns,
+  }) async {
+    final scoreboard = await widget.scoreboardStore.foldInSession(
+      sessionShots: sessionShots,
+      sessionAutoBarDowns: sessionAutoBarDowns,
+      sessionManualBarDowns: sessionManualBarDowns,
+    );
+    final highScore = await widget.highScoreStore.considerSession(
+      sessionShots: sessionShots,
+      sessionAutoBarDowns: sessionAutoBarDowns,
+      sessionManualBarDowns: sessionManualBarDowns,
+    );
+    return (scoreboard: scoreboard, highScore: highScore);
   }
 
   void _onAutoShotCount(int rawCount) =>
@@ -207,7 +246,7 @@ class _SessionScreenState extends State<SessionScreen> {
       _sessionManualBarDowns = 0;
     });
     try {
-      final updated = await widget.scoreboardStore.foldInSession(
+      final result = await _foldSessionIntoStores(
         sessionShots: foldedShots,
         sessionAutoBarDowns: foldedAutoBarDowns,
         sessionManualBarDowns: foldedManualBarDowns,
@@ -215,7 +254,8 @@ class _SessionScreenState extends State<SessionScreen> {
       _initialLoadStale = true;
       if (mounted) {
         setState(() {
-          _persisted = updated;
+          _persisted = result.scoreboard;
+          _highScore = result.highScore;
           _saving = false;
         });
       }
@@ -241,7 +281,7 @@ class _SessionScreenState extends State<SessionScreen> {
       // with it.
       if (!mounted &&
           (_sessionShots != 0 || _sessionAutoBarDowns != 0 || _sessionManualBarDowns != 0)) {
-        _foldLiveSessionIntoScoreboard();
+        _foldLiveSessionIntoStores();
       }
     }
   }
@@ -286,7 +326,7 @@ class _SessionScreenState extends State<SessionScreen> {
           ],
         ),
         body: SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(AppSpacing.xl),
             child: Column(
               children: [
@@ -300,6 +340,40 @@ class _SessionScreenState extends State<SessionScreen> {
                   style: AppTypography.overline.copyWith(color: AppColors.iceBluePrimary),
                 ),
                 const SizedBox(height: AppSpacing.xl),
+                Text(
+                  'HIGH SCORE',
+                  key: const Key('highScoreLabel'),
+                  style: AppTypography.overline.copyWith(color: AppColors.ink300),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                AppCard(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppSpacing.lg,
+                    horizontal: AppSpacing.md,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _TotalStat(
+                        label: 'SHOTS',
+                        value: '${_highScore.shots}',
+                        valueKey: const Key('highScoreShotsValue'),
+                      ),
+                      _TotalStat(
+                        label: 'BAR DOWNS',
+                        value: '${_highScore.barDowns}',
+                        valueKey: const Key('highScoreBarDownsValue'),
+                        barDownAccent: true,
+                      ),
+                      _TotalStat(
+                        label: 'RATE',
+                        value: '${(_highScore.rate * 100).toStringAsFixed(1)}%',
+                        valueKey: const Key('highScoreRateValue'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
                 AppCard(
                   padding: const EdgeInsets.symmetric(
                     vertical: AppSpacing.lg,
@@ -327,7 +401,7 @@ class _SessionScreenState extends State<SessionScreen> {
                     ],
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(height: AppSpacing.xxl),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -354,7 +428,7 @@ class _SessionScreenState extends State<SessionScreen> {
                     ),
                   ],
                 ),
-                const Spacer(),
+                const SizedBox(height: AppSpacing.xxl),
                 ElevatedButton(
                   key: const Key('sessionActionButton'),
                   onPressed: (_starting || _saving)
