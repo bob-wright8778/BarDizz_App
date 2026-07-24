@@ -45,5 +45,25 @@ void main() {
         returnsNormally,
       );
     });
+
+    test('delegates to computeAmplitudeFromSamples on the decoded samples', () {
+      final samples = [32767, -32768, 16384, 0];
+      expect(computeAmplitude(pcm16Of(samples)), computeAmplitudeFromSamples(samples));
+    });
+  });
+
+  group('computeAmplitudeFromSamples', () {
+    test('empty list returns 0.0', () {
+      expect(computeAmplitudeFromSamples(const []), 0.0);
+    });
+
+    test('all-zero samples return 0.0', () {
+      expect(computeAmplitudeFromSamples(const [0, 0, 0, 0]), 0.0);
+    });
+
+    test('full-scale samples return ~1.0', () {
+      final amplitude = computeAmplitudeFromSamples(const [32767, -32768, 32767, -32768]);
+      expect(amplitude, closeTo(1.0, 0.001));
+    });
   });
 }

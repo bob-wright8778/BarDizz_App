@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hockey_shot_tracker/audio/pcm16.dart';
 import 'package:hockey_shot_tracker/audio/spectral_profile.dart';
 
 Uint8List _pureTone(double freq, {int sampleRate = 16000, int sampleCount = 320}) {
@@ -40,6 +41,28 @@ void main() {
       final profile = computeSpectralProfile(_pureTone(1000));
       final sum = profile.fold<double>(0.0, (s, v) => s + v);
       expect(sum, closeTo(1.0, 0.001));
+    });
+
+    test('delegates to computeSpectralProfileFromSamples on the decoded samples', () {
+      final bytes = _pureTone(1000);
+      final samples = decodePcm16(bytes);
+      expect(computeSpectralProfile(bytes), computeSpectralProfileFromSamples(samples));
+    });
+  });
+
+  group('computeSpectralProfileFromSamples', () {
+    test('empty list returns an all-zero profile', () {
+      final profile = computeSpectralProfileFromSamples(const []);
+      expect(profile, everyElement(0.0));
+    });
+
+    test('a pure tone at a band center puts most energy in that band', () {
+      const bandIndex = 2; // 2000Hz
+      final profile = computeSpectralProfileFromSamples(
+        decodePcm16(_pureTone(spectralBandCenters[bandIndex])),
+      );
+
+      expect(profile[bandIndex], greaterThan(0.8));
     });
   });
 }
