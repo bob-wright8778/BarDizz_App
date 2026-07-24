@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hockey_shot_tracker/audio/amplitude.dart';
 import 'package:hockey_shot_tracker/audio/classifier_features.dart';
+import 'package:hockey_shot_tracker/audio/pcm16.dart';
 import 'package:hockey_shot_tracker/audio/spectral_profile.dart';
 
 Uint8List _pcm16(List<int> samples) {
@@ -43,6 +44,26 @@ void main() {
       final rate = computeZeroCrossingRate(_pcm16([100, 0, -5]));
       expect(rate, closeTo(0.5, 0.0001));
     });
+
+    test('delegates to computeZeroCrossingRateFromSamples on the decoded samples', () {
+      final samples = [100, -100, 100, -100, 100];
+      expect(computeZeroCrossingRate(_pcm16(samples)), computeZeroCrossingRateFromSamples(samples));
+    });
+  });
+
+  group('computeZeroCrossingRateFromSamples', () {
+    test('empty list is 0.0', () {
+      expect(computeZeroCrossingRateFromSamples(const []), 0.0);
+    });
+
+    test('single sample is 0.0', () {
+      expect(computeZeroCrossingRateFromSamples(const [100]), 0.0);
+    });
+
+    test('fully alternating sign crosses every adjacent pair', () {
+      final rate = computeZeroCrossingRateFromSamples(const [100, -100, 100, -100, 100]);
+      expect(rate, closeTo(1.0, 0.0001));
+    });
   });
 
   group('extractClassifierFeatures', () {
@@ -64,6 +85,20 @@ void main() {
       final expectedProfile = computeSpectralProfile(pcm16Bytes);
       final expectedAmplitude = computeAmplitude(pcm16Bytes);
       final expectedZcr = computeZeroCrossingRate(pcm16Bytes);
+
+      expect(features.sublist(0, 6), expectedProfile);
+      expect(features[6], expectedAmplitude);
+      expect(features[7], expectedZcr);
+    });
+
+    test('matches the *FromSamples functions computed off one shared decode', () {
+      final pcm16Bytes = _pcm16(List.generate(400, (i) => (i.isEven ? 3000 : -2500)));
+      final features = extractClassifierFeatures(pcm16Bytes);
+
+      final samples = decodePcm16(pcm16Bytes);
+      final expectedProfile = computeSpectralProfileFromSamples(samples);
+      final expectedAmplitude = computeAmplitudeFromSamples(samples);
+      final expectedZcr = computeZeroCrossingRateFromSamples(samples);
 
       expect(features.sublist(0, 6), expectedProfile);
       expect(features[6], expectedAmplitude);

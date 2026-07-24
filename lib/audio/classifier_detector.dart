@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'amplitude.dart';
 import 'audio_constants.dart';
 import 'classifier_features.dart';
+import 'classifier_model.dart';
 import 'sound_classifier.dart';
 
 /// Injectable clock, so the refractory window and bar-down confirm window
@@ -89,6 +90,15 @@ class ClassifierDetector {
   final ClassifierFn _classify;
   final int _targetWindowBytes;
 
+  // Sourced from classifierClassLabels by index rather than retyped as
+  // literals, so a retrain that renames a class (without reordering it) is
+  // picked up automatically instead of silently breaking these comparisons.
+  // classifierClassLabels order: background-quiet, bar-hit, eww, shot,
+  // stick-handling.
+  static final String _barHitLabel = classifierClassLabels[1];
+  static final String _ewwLabel = classifierClassLabels[2];
+  static final String _shotLabel = classifierClassLabels[3];
+
   DateTime? _refractoryUntil;
   Uint8List? _windowBuffer;
   int _windowFilled = 0;
@@ -157,21 +167,21 @@ class ClassifierDetector {
         // "bar-hit detection runs independently from the Eww window it
         // opens" behavior. A `shot` still reports immediately (class doc
         // comment) without disturbing the pending confirm window.
-        if (label == 'eww') {
+        if (label == _ewwLabel) {
           _barHitConfirmUntil = null;
           return ClassifiedEvent.barDown;
         }
-        if (label == 'shot') return ClassifiedEvent.shot;
+        if (label == _shotLabel) return ClassifiedEvent.shot;
         return null;
       }
       _barHitConfirmUntil = null; // window expired unconfirmed, fall through
     }
 
-    if (label == 'bar-hit') {
+    if (label == _barHitLabel) {
       _barHitConfirmUntil = now.add(config.barDownConfirmWindow);
       return null;
     }
-    if (label == 'shot') return ClassifiedEvent.shot;
+    if (label == _shotLabel) return ClassifiedEvent.shot;
     return null; // background-quiet, stick-handling, or a standalone eww
   }
 }
