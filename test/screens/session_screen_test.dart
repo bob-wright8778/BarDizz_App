@@ -107,7 +107,7 @@ void main() {
   Future<void> pumpScreen(
     WidgetTester tester, {
     AllTimeScoreboardStore scoreboardStore = const AllTimeScoreboardStore(),
-    VoidCallback? onSettingsTap,
+    Future<void> Function()? onSettingsTap,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -420,12 +420,37 @@ void main() {
 
   testWidgets('tapping the settings button calls onSettingsTap', (tester) async {
     var tapped = false;
-    await pumpScreen(tester, onSettingsTap: () => tapped = true);
+    await pumpScreen(tester, onSettingsTap: () async => tapped = true);
 
     await tester.tap(find.byKey(const Key('settingsButton')));
     await tester.pump();
 
     expect(tapped, isTrue);
+  });
+
+  testWidgets(
+      'returning from settings reloads the all-time strip without needing a save',
+      (tester) async {
+    const store = AllTimeScoreboardStore();
+    await store.foldInSession(sessionShots: 20, sessionAutoBarDowns: 5, sessionManualBarDowns: 3);
+
+    await pumpScreen(
+      tester,
+      scoreboardStore: store,
+      // Simulates Settings resetting the scoreboard on disk while this
+      // screen stays alive underneath -- the strip must pick up the fresh
+      // totals once the settings Future resolves, not stay stale until the
+      // next Save Session.
+      onSettingsTap: () => store.reset(),
+    );
+    expect(textAt(tester, 'allTimeShotsValue').data, '20');
+
+    await tester.tap(find.byKey(const Key('settingsButton')));
+    await tester.pumpAndSettle();
+
+    expect(textAt(tester, 'allTimeShotsValue').data, '0');
+    expect(textAt(tester, 'allTimeBarDownsValue').data, '0');
+    expect(textAt(tester, 'allTimeRateValue').data, '0.0%');
   });
 
   testWidgets('disposing while capturing stops the controller to release the mic', (tester) async {

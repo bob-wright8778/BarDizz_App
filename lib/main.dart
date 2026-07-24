@@ -38,8 +38,8 @@ class _AppHomeGateState extends State<AppHomeGate> {
   // under SessionScreen's stream subscription mid-session.
   late final LiveMicLevelController _sessionController = LiveMicLevelController();
 
-  void _openSettings(BuildContext context) {
-    Navigator.of(context).push(
+  Future<void> _openSettings(BuildContext context) {
+    return Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => SettingsScreen(
           onDebugMeterTap: () => _openDebugMeter(context),

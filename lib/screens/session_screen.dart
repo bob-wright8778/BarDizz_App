@@ -31,7 +31,7 @@ class SessionScreen extends StatefulWidget {
   });
 
   final MicLevelController controller;
-  final VoidCallback? onSettingsTap;
+  final Future<void> Function()? onSettingsTap;
   final AllTimeScoreboardStore scoreboardStore;
 
   @override
@@ -85,6 +85,15 @@ class _SessionScreenState extends State<SessionScreen> {
   Future<void> _loadScoreboard() async {
     final loaded = await widget.scoreboardStore.load();
     if (mounted && !_initialLoadStale) setState(() => _persisted = loaded);
+  }
+
+  /// Reloads the persisted scoreboard after Settings closes.
+  Future<void> _handleSettingsTap() async {
+    await widget.onSettingsTap?.call();
+    // Not _loadScoreboard(): its _initialLoadStale guard is permanently true
+    // after the first save and would silently no-op this reload.
+    final loaded = await widget.scoreboardStore.load();
+    if (mounted) setState(() => _persisted = loaded);
   }
 
   @override
@@ -272,7 +281,7 @@ class _SessionScreenState extends State<SessionScreen> {
               IconButton(
                 key: const Key('settingsButton'),
                 icon: const Icon(Icons.settings),
-                onPressed: widget.onSettingsTap,
+                onPressed: _handleSettingsTap,
               ),
           ],
         ),
