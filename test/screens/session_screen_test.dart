@@ -8,6 +8,7 @@ import 'package:hockey_shot_tracker/scoreboard/all_time_scoreboard_store.dart';
 import 'package:hockey_shot_tracker/scoreboard/high_score_store.dart';
 import 'package:hockey_shot_tracker/screens/session_screen.dart';
 import 'package:hockey_shot_tracker/theme/design_tokens.dart';
+import 'package:hockey_shot_tracker/widgets/app_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _systemNavChannel = MethodChannel('hockey_shot_tracker/system_nav');
@@ -192,6 +193,36 @@ void main() {
       expect(textAt(tester, 'allTimeShotsValue').data, '0');
       expect(textAt(tester, 'allTimeBarDownsValue').data, '0');
       expect(textAt(tester, 'allTimeRateValue').data, '0.0%');
+    });
+
+    testWidgets('HIGH SCORE and ALL TIME titles render inside their own cards, above their stats',
+        (tester) async {
+      await pumpScreen(tester);
+
+      expect(find.text('HIGH SCORE'), findsOneWidget);
+      expect(find.text('ALL TIME'), findsOneWidget);
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('highScoreLabel')),
+          matching: find.byType(AppCard),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('allTimeLabel')),
+          matching: find.byType(AppCard),
+        ),
+        findsOneWidget,
+      );
+
+      final highScoreLabelTop = tester.getTopLeft(find.byKey(const Key('highScoreLabel'))).dy;
+      final highScoreStatsTop = tester.getTopLeft(find.byKey(const Key('highScoreShotsValue'))).dy;
+      expect(highScoreLabelTop, lessThan(highScoreStatsTop));
+
+      final allTimeLabelTop = tester.getTopLeft(find.byKey(const Key('allTimeLabel'))).dy;
+      final allTimeStatsTop = tester.getTopLeft(find.byKey(const Key('allTimeShotsValue'))).dy;
+      expect(allTimeLabelTop, lessThan(allTimeStatsTop));
     });
 
     testWidgets(
