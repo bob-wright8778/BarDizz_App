@@ -451,9 +451,11 @@ class _TitledStatsCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg, horizontal: AppSpacing.md),
       child: Column(
         children: [
-          Text(title, key: titleKey, style: AppTypography.overline.copyWith(color: AppColors.ink300)),
+          Text(title, key: titleKey, style: AppTypography.overline.copyWith(color: AppColors.iceBluePrimary)),
           const SizedBox(height: AppSpacing.xs),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: stats),
+          const Divider(height: 1, thickness: 1, color: AppColors.ink600, indent: AppSpacing.xs, endIndent: AppSpacing.xs),
+          const SizedBox(height: AppSpacing.sm),
+          Row(children: [for (final stat in stats) Expanded(child: Center(child: stat))]),
         ],
       ),
     );
