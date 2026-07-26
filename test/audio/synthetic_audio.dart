@@ -40,3 +40,12 @@ Uint8List concatChunks(List<Uint8List> chunks) {
   }
   return out;
 }
+
+/// The opening burst of a fixture that deterministically classifies as `eww` via the real 200-tree
+/// model (not a fake classifier) -- shared by classifier_detector_test.dart's and
+/// mic_level_controller_test.dart's real-model wiring tests. Pairs with [realEwwRestChunk]; 12800 = the
+/// default 800ms window at the default 16kHz sample rate.
+Uint8List realEwwBurstChunk() => sineWave([const MapEntry(2000.0, 0.9)], sampleCount: 320);
+
+/// The trailing silence that completes [realEwwBurstChunk]'s default-length classification window.
+Uint8List realEwwRestChunk() => silentChunk(sampleCount: 12800 - 320);

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hockey_shot_tracker/scoreboard/all_time_scoreboard_store.dart';
 import 'package:hockey_shot_tracker/scoreboard/high_score_store.dart';
 import 'package:hockey_shot_tracker/screens/settings_screen.dart';
+import 'package:hockey_shot_tracker/settings/eww_always_bar_down_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -236,6 +237,54 @@ void main() {
 
       final loadedAllTime = await scoreboardStore.load();
       expect(loadedAllTime.shots, 20, reason: 'resetting the high score must not touch all-time totals');
+    });
+  });
+
+  group('Eww always bar-down toggle', () {
+    testWidgets('defaults on when nothing has been saved yet', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(home: const SettingsScreen()),
+      );
+      await tester.pumpAndSettle();
+
+      final tile = tester.widget<SwitchListTile>(find.byKey(const Key('ewwAlwaysBarDownSwitch')));
+      expect(tile.value, isTrue);
+    });
+
+    testWidgets('reflects a previously saved off value', (tester) async {
+      const store = EwwAlwaysBarDownStore();
+      await store.save(false);
+
+      await tester.pumpWidget(
+        MaterialApp(home: SettingsScreen(ewwAlwaysBarDownStore: store)),
+      );
+      await tester.pumpAndSettle();
+
+      final tile = tester.widget<SwitchListTile>(find.byKey(const Key('ewwAlwaysBarDownSwitch')));
+      expect(tile.value, isFalse);
+    });
+
+    testWidgets('toggling off persists the change and notifies the caller', (tester) async {
+      const store = EwwAlwaysBarDownStore();
+      bool? notified;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SettingsScreen(
+            ewwAlwaysBarDownStore: store,
+            onEwwAlwaysBarDownChanged: (value) => notified = value,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('ewwAlwaysBarDownSwitch')));
+      await tester.pumpAndSettle();
+
+      expect(notified, isFalse);
+      expect(await store.load(), isFalse);
+      final tile = tester.widget<SwitchListTile>(find.byKey(const Key('ewwAlwaysBarDownSwitch')));
+      expect(tile.value, isFalse);
     });
   });
 }

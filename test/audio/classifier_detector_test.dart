@@ -162,14 +162,70 @@ void main() {
       expect(detector.detect(_loudChunk()), ClassifiedEvent.shot);
     });
 
-    test('a standalone eww with no pending bar-hit reports no event', () {
+    test('a standalone eww with no pending bar-hit reports a bar-down by default', () {
       final fake = _FakeClassifier(['eww']);
       final detector = ClassifierDetector(
         config: const ClassifierDetectorConfig(windowDuration: Duration(milliseconds: 20)),
         classify: fake.call,
       );
 
+      expect(detector.detect(_loudChunk()), ClassifiedEvent.barDown,
+          reason: 'ewwAlwaysBarDown defaults on (card 15 net workaround)');
+    });
+
+    test('a standalone eww reports no event when ewwAlwaysBarDown is turned off', () {
+      final fake = _FakeClassifier(['eww']);
+      final detector = ClassifierDetector(
+        config: const ClassifierDetectorConfig(windowDuration: Duration(milliseconds: 20)),
+        classify: fake.call,
+        ewwAlwaysBarDown: () => false,
+      );
+
       expect(detector.detect(_loudChunk()), isNull);
+    });
+
+    test(
+        'flipping the ewwAlwaysBarDown getter mid-session changes behavior on the very next window, no '
+        'restart needed (AC-5)', () {
+      var toggle = true;
+      var now = DateTime(2026);
+      final fake = _FakeClassifier(['eww', 'eww']);
+      final detector = ClassifierDetector(
+        config: const ClassifierDetectorConfig(windowDuration: Duration(milliseconds: 20)),
+        now: () => now,
+        classify: fake.call,
+        ewwAlwaysBarDown: () => toggle,
+      );
+
+      expect(detector.detect(_loudChunk()), ClassifiedEvent.barDown);
+      now = now.add(const Duration(milliseconds: 300)); // clear the refractory window
+      toggle = false;
+      expect(
+        detector.detect(_loudChunk()),
+        isNull,
+        reason: 'the getter is re-read on the very next window -- no need to recreate the detector',
+      );
+    });
+
+    test('a bar-hit followed by a confirming eww still reports a bar-down when ewwAlwaysBarDown is off',
+        () {
+      var now = DateTime(2026);
+      final fake = _FakeClassifier(['bar-hit', 'eww']);
+      final detector = ClassifierDetector(
+        config: const ClassifierDetectorConfig(
+          windowDuration: Duration(milliseconds: 20),
+          refractoryWindow: Duration(milliseconds: 250),
+          barDownConfirmWindow: Duration(seconds: 2),
+        ),
+        now: () => now,
+        classify: fake.call,
+        ewwAlwaysBarDown: () => false,
+      );
+
+      expect(detector.detect(_loudChunk()), isNull, reason: 'the bar-hit itself is not a bar down');
+      now = now.add(const Duration(milliseconds: 500));
+      expect(detector.detect(_loudChunk()), ClassifiedEvent.barDown,
+          reason: 'the paired bar-hit+eww case is unaffected by the toggle');
     });
 
     test('a bar-hit followed by a confirming eww within the confirm window reports a bar-down', () {
@@ -190,7 +246,9 @@ void main() {
       expect(detector.detect(_loudChunk()), ClassifiedEvent.barDown);
     });
 
-    test('a bar-hit with no confirming eww before the confirm window expires is silently dropped', () {
+    test(
+        'a bar-hit with no confirming eww before the confirm window expires: the pairing is dropped, '
+        'but the later eww still counts on its own (ewwAlwaysBarDown default)', () {
       var now = DateTime(2026);
       final fake = _FakeClassifier(['bar-hit', 'eww']);
       final detector = ClassifierDetector(
@@ -207,8 +265,34 @@ void main() {
       now = now.add(const Duration(milliseconds: 400)); // past the 300ms confirm window
       expect(
         detector.detect(_loudChunk()),
+        ClassifiedEvent.barDown,
+        reason: 'the confirm window already expired, so this eww is a standalone one, which counts on '
+            'its own by default',
+      );
+    });
+
+    test(
+        'a bar-hit with no confirming eww before the confirm window expires: the later eww reports no '
+        'event when ewwAlwaysBarDown is off', () {
+      var now = DateTime(2026);
+      final fake = _FakeClassifier(['bar-hit', 'eww']);
+      final detector = ClassifierDetector(
+        config: const ClassifierDetectorConfig(
+          windowDuration: Duration(milliseconds: 20),
+          refractoryWindow: Duration(milliseconds: 50),
+          barDownConfirmWindow: Duration(milliseconds: 300),
+        ),
+        now: () => now,
+        classify: fake.call,
+        ewwAlwaysBarDown: () => false,
+      );
+
+      expect(detector.detect(_loudChunk()), isNull);
+      now = now.add(const Duration(milliseconds: 400)); // past the 300ms confirm window
+      expect(
+        detector.detect(_loudChunk()),
         isNull,
-        reason: 'the confirm window already expired, so this eww is a standalone one',
+        reason: 'the confirm window already expired and the toggle is off, so this standalone eww drops',
       );
     });
 
@@ -235,8 +319,9 @@ void main() {
       now = now.add(const Duration(milliseconds: 250)); // t=350ms: past the original 300ms deadline
       expect(
         detector.detect(_loudChunk()),
-        isNull,
-        reason: 'the confirm window was never extended by the 2nd bar-hit, so it has already expired',
+        ClassifiedEvent.barDown,
+        reason: 'the confirm window was never extended by the 2nd bar-hit, so it has already expired -- '
+            'this eww is standalone and counts on its own by default',
       );
     });
 
@@ -279,14 +364,15 @@ void main() {
       // proves the plumbing (real feature extraction + real 200-tree
       // ensemble) runs end to end without throwing, and is deterministic.
       final detector = ClassifierDetector();
-      final burst = sineWave([const MapEntry(2000.0, 0.9)], sampleCount: 320); // 640 bytes, well above the gate
-      final rest = silentChunk(sampleCount: 12800 - 320); // completes the default 800ms/12800-sample window
+      final burst = realEwwBurstChunk();
+      final rest = realEwwRestChunk();
 
       expect(detector.detect(burst), isNull, reason: 'window not yet full');
       final event = detector.detect(rest);
 
       expect(detector.lastLabel, 'eww', reason: 'deterministic real-model output for this exact synthetic fixture');
-      expect(event, isNull, reason: 'a standalone eww with no pending bar-hit reports no event');
+      expect(event, ClassifiedEvent.barDown,
+          reason: 'a standalone eww counts as a bar-down by default (ewwAlwaysBarDown)');
     });
   });
 }

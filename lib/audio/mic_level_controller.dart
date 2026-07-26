@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import '../settings/eww_always_bar_down_store.dart';
 import 'classifier_detector.dart';
 import 'mic_capture_service.dart';
 import 'mic_foreground_task_handler.dart';
@@ -26,11 +27,15 @@ abstract class MicLevelController {
 /// time -- see `classifier_detector.dart`'s doc comment for why that's an
 /// intentional simplification, not an oversight.
 class LiveMicLevelController implements MicLevelController {
+  // ewwAlwaysBarDown is ignored when detector is supplied directly -- same
+  // as config/classify/now, an explicit detector fully replaces internal
+  // construction.
   LiveMicLevelController({
     MicCaptureService? captureService,
     ClassifierDetector? detector,
+    EwwAlwaysBarDownGetter ewwAlwaysBarDown = ewwAlwaysBarDownDefaultGetter,
   })  : _captureService = captureService ?? MicCaptureService(),
-        _detector = detector ?? ClassifierDetector();
+        _detector = detector ?? ClassifierDetector(ewwAlwaysBarDown: ewwAlwaysBarDown);
 
   final MicCaptureService _captureService;
   final ClassifierDetector _detector;
