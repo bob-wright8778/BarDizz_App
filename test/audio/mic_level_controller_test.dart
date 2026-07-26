@@ -189,7 +189,9 @@ void main() {
       expect(barDownCounts, [1], reason: 'the bar-hit+eww is a separate counted event');
     });
 
-    test('a bar-hit with no confirming eww before the confirm window expires never counts', () async {
+    test(
+        'a bar-hit with no confirming eww before the confirm window expires: the later standalone eww '
+        'still counts on its own (ewwAlwaysBarDown default)', () async {
       final capture = _FakeMicCaptureService();
       var now = DateTime(2026);
       final controller = LiveMicLevelController(captureService: capture, detector: buildDetector(() => now));
@@ -204,7 +206,7 @@ void main() {
       capture.emit(_ewwChunk());
       await _flush();
 
-      expect(barDownCounts, isEmpty);
+      expect(barDownCounts, [1]);
     });
 
     test('background-quiet classifications (e.g. silence) never count as anything', () async {
@@ -254,6 +256,63 @@ void main() {
       await controller.start();
 
       expect(controller.isCapturing, isTrue);
+    });
+  });
+
+  group('LiveMicLevelController ewwAlwaysBarDown wiring (decision 6)', () {
+    test('a standalone eww counts as a bar-down when ewwAlwaysBarDown is on, with no detector injected',
+        () async {
+      final capture = _FakeMicCaptureService();
+      final controller = LiveMicLevelController(captureService: capture, ewwAlwaysBarDown: () => true);
+
+      final barDownCounts = <int>[];
+      controller.barDownCount.listen(barDownCounts.add);
+      await controller.start();
+
+      capture.emit(realEwwBurstChunk());
+      await _flush();
+      capture.emit(realEwwRestChunk());
+      await _flush();
+
+      expect(barDownCounts, [1]);
+    });
+
+    test('a standalone eww reports no event when ewwAlwaysBarDown is off, with no detector injected',
+        () async {
+      final capture = _FakeMicCaptureService();
+      final controller = LiveMicLevelController(captureService: capture, ewwAlwaysBarDown: () => false);
+
+      final barDownCounts = <int>[];
+      controller.barDownCount.listen(barDownCounts.add);
+      await controller.start();
+
+      capture.emit(realEwwBurstChunk());
+      await _flush();
+      capture.emit(realEwwRestChunk());
+      await _flush();
+
+      expect(barDownCounts, isEmpty);
+    });
+
+    test('ewwAlwaysBarDown has no effect once an explicit detector is supplied', () async {
+      final capture = _FakeMicCaptureService();
+      var now = DateTime(2026);
+      final controller = LiveMicLevelController(
+        captureService: capture,
+        detector: buildDetector(() => now), // its own internal default (true) governs, not this:
+        ewwAlwaysBarDown: () => false,
+      );
+
+      final barDownCounts = <int>[];
+      controller.barDownCount.listen(barDownCounts.add);
+      await controller.start();
+
+      capture.emit(_ewwChunk());
+      await _flush();
+
+      expect(barDownCounts, [1],
+          reason: 'an explicit detector always wins -- ewwAlwaysBarDown only applies when '
+              'LiveMicLevelController builds its own internal detector');
     });
   });
 }

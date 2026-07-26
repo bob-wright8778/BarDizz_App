@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../settings/eww_always_bar_down_store.dart';
 import 'amplitude.dart';
 import 'audio_constants.dart';
 import 'classifier_features.dart';
@@ -15,11 +16,16 @@ typedef Now = DateTime Function();
 /// 200-tree ensemble. Defaults to [classifySound].
 typedef ClassifierFn = String Function(List<double> features);
 
+/// Injectable toggle read, so the standalone-eww-counts-as-bar-down workaround
+/// (card 15) can be flipped live without recreating the detector.
+typedef EwwAlwaysBarDownGetter = bool Function();
+
 /// App-level events [ClassifierDetector] reports out of the raw
 /// [classifierClassLabels] stream -- `background-quiet`/`stick-handling`
-/// classifications, a standalone `eww` with no pending bar-hit, and a
-/// `bar-hit` still waiting on its confirming `eww` all report no event
-/// (`null`).
+/// classifications, and a `bar-hit` still waiting on its confirming `eww`,
+/// report no event (`null`). A standalone `eww` with no pending bar-hit
+/// reports no event only when the `ewwAlwaysBarDown` toggle is off; by
+/// default it reports [barDown] (card 15).
 enum ClassifiedEvent {
   /// A window classified as `shot`.
   shot,
@@ -71,23 +77,29 @@ class ClassifierDetectorConfig {
 ///
 /// A `shot` classification is reported immediately. A `bar-hit`
 /// classification opens a [ClassifierDetectorConfig.barDownConfirmWindow]
-/// waiting for a confirming `eww`; only that combination reports a bar-down,
+/// waiting for a confirming `eww`; that combination reports a bar-down,
 /// mirroring the old two-stage `BarDownDetector`'s product semantics (a bar
 /// hit alone isn't a notable event -- only one the user audibly reacted to
-/// is). `background-quiet`/`stick-handling`, and a standalone `eww` with no
-/// pending bar-hit, report no event.
+/// is). `background-quiet`/`stick-handling` report no event. A standalone
+/// `eww` with no pending bar-hit reports a bar-down too, by default -- a
+/// temporary workaround (card 15) for nets whose bar-hit impact isn't
+/// reliably classified; the `ewwAlwaysBarDown` constructor parameter turns
+/// this off, restoring the original two-stage-only semantics.
 class ClassifierDetector {
   ClassifierDetector({
     this.config = const ClassifierDetectorConfig(),
     Now now = DateTime.now,
     ClassifierFn classify = classifySound,
+    EwwAlwaysBarDownGetter ewwAlwaysBarDown = ewwAlwaysBarDownDefaultGetter,
   })  : _now = now,
         _classify = classify,
+        _ewwAlwaysBarDown = ewwAlwaysBarDown,
         _targetWindowBytes = _windowByteLength(config);
 
   final ClassifierDetectorConfig config;
   final Now _now;
   final ClassifierFn _classify;
+  final EwwAlwaysBarDownGetter _ewwAlwaysBarDown;
   final int _targetWindowBytes;
 
   // Sourced from classifierClassLabels by index rather than retyped as
@@ -182,6 +194,7 @@ class ClassifierDetector {
       return null;
     }
     if (label == _shotLabel) return ClassifiedEvent.shot;
-    return null; // background-quiet, stick-handling, or a standalone eww
+    if (label == _ewwLabel && _ewwAlwaysBarDown()) return ClassifiedEvent.barDown;
+    return null; // background-quiet, stick-handling, or a standalone eww with the toggle off
   }
 }

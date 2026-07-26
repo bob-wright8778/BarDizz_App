@@ -2,25 +2,30 @@ import 'package:flutter/material.dart';
 
 import '../scoreboard/all_time_scoreboard_store.dart';
 import '../scoreboard/high_score_store.dart';
+import '../settings/eww_always_bar_down_store.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/app_card.dart';
 
 /// Settings screen: the all-time sound-only vs. manually-added bar-down
-/// breakdown, independent Reset Scoreboard / Reset High Score actions, plus
-/// an optional entry to the raw mic debug meter (ticket 01's capture
-/// proof-of-concept), which stopped being reachable once the session screen
-/// became the app's home.
+/// breakdown, independent Reset Scoreboard / Reset High Score actions, the
+/// "count standalone Eww as bar-down" toggle, plus an optional entry to the
+/// raw mic debug meter (ticket 01's capture proof-of-concept), which stopped
+/// being reachable once the session screen became the app's home.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     super.key,
     this.onDebugMeterTap,
     this.scoreboardStore = const AllTimeScoreboardStore(),
     this.highScoreStore = const HighScoreStore(),
+    this.ewwAlwaysBarDownStore = const EwwAlwaysBarDownStore(),
+    this.onEwwAlwaysBarDownChanged,
   });
 
   final VoidCallback? onDebugMeterTap;
   final AllTimeScoreboardStore scoreboardStore;
   final HighScoreStore highScoreStore;
+  final EwwAlwaysBarDownStore ewwAlwaysBarDownStore;
+  final ValueChanged<bool>? onEwwAlwaysBarDownChanged;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -28,16 +33,29 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   AllTimeScoreboard? _scoreboard;
+  bool _ewwAlwaysBarDown = ewwAlwaysBarDownDefault;
 
   @override
   void initState() {
     super.initState();
     _loadScoreboard();
+    _loadEwwAlwaysBarDown();
   }
 
   Future<void> _loadScoreboard() async {
     final loaded = await widget.scoreboardStore.load();
     if (mounted) setState(() => _scoreboard = loaded);
+  }
+
+  Future<void> _loadEwwAlwaysBarDown() async {
+    final loaded = await widget.ewwAlwaysBarDownStore.load();
+    if (mounted) setState(() => _ewwAlwaysBarDown = loaded);
+  }
+
+  Future<void> _toggleEwwAlwaysBarDown(bool value) async {
+    setState(() => _ewwAlwaysBarDown = value);
+    await widget.ewwAlwaysBarDownStore.save(value);
+    widget.onEwwAlwaysBarDownChanged?.call(value);
   }
 
   Future<void> _resetScoreboard() async {
@@ -129,6 +147,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     leading: const Icon(Icons.emoji_events_outlined),
                     title: const Text('Reset High Score'),
                     onTap: _resetHighScore,
+                  ),
+                  SwitchListTile(
+                    key: const Key('ewwAlwaysBarDownSwitch'),
+                    secondary: const Icon(Icons.record_voice_over),
+                    title: const Text('Count standalone Eww as bar-down'),
+                    subtitle: const Text(
+                        "For nets where the bar-hit impact isn't detected reliably."),
+                    value: _ewwAlwaysBarDown,
+                    onChanged: _toggleEwwAlwaysBarDown,
                   ),
                 ],
               ),
