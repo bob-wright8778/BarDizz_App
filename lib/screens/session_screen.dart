@@ -340,66 +340,50 @@ class _SessionScreenState extends State<SessionScreen> {
                   style: AppTypography.overline.copyWith(color: AppColors.iceBluePrimary),
                 ),
                 const SizedBox(height: AppSpacing.xl),
-                Text(
-                  'HIGH SCORE',
-                  key: const Key('highScoreLabel'),
-                  style: AppTypography.overline.copyWith(color: AppColors.ink300),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                AppCard(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.lg,
-                    horizontal: AppSpacing.md,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _TotalStat(
-                        label: 'SHOTS',
-                        value: '${_highScore.shots}',
-                        valueKey: const Key('highScoreShotsValue'),
-                      ),
-                      _TotalStat(
-                        label: 'BAR DOWNS',
-                        value: '${_highScore.barDowns}',
-                        valueKey: const Key('highScoreBarDownsValue'),
-                        barDownAccent: true,
-                      ),
-                      _TotalStat(
-                        label: 'RATE',
-                        value: '${(_highScore.rate * 100).toStringAsFixed(1)}%',
-                        valueKey: const Key('highScoreRateValue'),
-                      ),
-                    ],
-                  ),
+                _TitledStatsCard(
+                  title: 'HIGH SCORE',
+                  titleKey: const Key('highScoreLabel'),
+                  stats: [
+                    _TotalStat(
+                      label: 'SHOTS',
+                      value: '${_highScore.shots}',
+                      valueKey: const Key('highScoreShotsValue'),
+                    ),
+                    _TotalStat(
+                      label: 'BAR DOWNS',
+                      value: '${_highScore.barDowns}',
+                      valueKey: const Key('highScoreBarDownsValue'),
+                      barDownAccent: true,
+                    ),
+                    _TotalStat(
+                      label: 'RATE',
+                      value: '${(_highScore.rate * 100).toStringAsFixed(1)}%',
+                      valueKey: const Key('highScoreRateValue'),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                AppCard(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.lg,
-                    horizontal: AppSpacing.md,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _TotalStat(
-                        label: 'SHOTS',
-                        value: '$_displayedShots',
-                        valueKey: const Key('allTimeShotsValue'),
-                      ),
-                      _TotalStat(
-                        label: 'BAR DOWNS',
-                        value: '$_displayedBarDowns',
-                        valueKey: const Key('allTimeBarDownsValue'),
-                        barDownAccent: true,
-                      ),
-                      _TotalStat(
-                        label: 'RATE',
-                        value: '${_displayedRate.toStringAsFixed(1)}%',
-                        valueKey: const Key('allTimeRateValue'),
-                      ),
-                    ],
-                  ),
+                _TitledStatsCard(
+                  title: 'ALL TIME',
+                  titleKey: const Key('allTimeLabel'),
+                  stats: [
+                    _TotalStat(
+                      label: 'SHOTS',
+                      value: '$_displayedShots',
+                      valueKey: const Key('allTimeShotsValue'),
+                    ),
+                    _TotalStat(
+                      label: 'BAR DOWNS',
+                      value: '$_displayedBarDowns',
+                      valueKey: const Key('allTimeBarDownsValue'),
+                      barDownAccent: true,
+                    ),
+                    _TotalStat(
+                      label: 'RATE',
+                      value: '${_displayedRate.toStringAsFixed(1)}%',
+                      valueKey: const Key('allTimeRateValue'),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: AppSpacing.xxl),
                 Row(
@@ -448,6 +432,31 @@ class _SessionScreenState extends State<SessionScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// An [AppCard] with an overline title above a row of stats.
+class _TitledStatsCard extends StatelessWidget {
+  const _TitledStatsCard({required this.title, required this.titleKey, required this.stats});
+
+  final String title;
+  final Key titleKey;
+  final List<Widget> stats;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg, horizontal: AppSpacing.md),
+      child: Column(
+        children: [
+          Text(title, key: titleKey, style: AppTypography.overline.copyWith(color: AppColors.iceBluePrimary)),
+          const SizedBox(height: AppSpacing.xs),
+          const Divider(height: 1, thickness: 1, color: AppColors.ink600, indent: AppSpacing.xs, endIndent: AppSpacing.xs),
+          const SizedBox(height: AppSpacing.sm),
+          Row(children: [for (final stat in stats) Expanded(child: Center(child: stat))]),
+        ],
       ),
     );
   }
