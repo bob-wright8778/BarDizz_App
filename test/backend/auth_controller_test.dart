@@ -97,17 +97,6 @@ void main() {
       expect(browser.lastCallbackUrlScheme, 'bardizz');
     });
 
-    test('signInWithGithub requests the github provider', () async {
-      final client = FakeAuthClient()..exchangeResult = _session;
-      final browser = FakeOAuthBrowser(callbackUrl: 'bardizz://auth/callback?insforge_code=abc123');
-      final controller =
-          _buildController(client: client, browser: browser, tokenStore: FakeSecureTokenStore());
-
-      await controller.signInWithGithub();
-
-      expect(client.lastRequestedProvider, 'github');
-    });
-
     test('lands on signedIn directly when the profile is already complete', () async {
       final client = FakeAuthClient()..exchangeResult = _session;
       client.profile = const AuthProfile(name: 'Bob', avatarId: 'avatar-01');

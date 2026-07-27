@@ -69,8 +69,6 @@ class AuthController extends ChangeNotifier {
 
   Future<void> signInWithGoogle() => _signIn('google');
 
-  Future<void> signInWithGithub() => _signIn('github');
-
   Future<void> _signIn(String provider) async {
     status = AuthStatus.authenticating;
     errorMessage = null;

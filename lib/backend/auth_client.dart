@@ -3,7 +3,7 @@ import 'auth_models.dart';
 /// The InsForge auth/profile REST surface this app depends on, abstracted so
 /// the UI/state layer never imports `http` directly and tests can fake it.
 abstract class AuthClient {
-  /// Inputs: OAuth provider id ("google"/"github"), the app's redirect URI,
+  /// Inputs: OAuth provider id (e.g. "google"), the app's redirect URI,
   /// and the PKCE code_challenge.
   /// Outputs: the provider's hosted authorization URL to open in a browser.
   Future<String> requestAuthUrl({
