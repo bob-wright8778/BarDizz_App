@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../backend/auth_controller.dart';
 import '../theme/design_tokens.dart';
 
-/// Google/GitHub OAuth entry point, embedded wherever a signed-out user
-/// needs to authenticate before continuing (Friends tab, Profile tab).
+/// Google OAuth entry point, embedded wherever a signed-out user needs to
+/// authenticate before continuing (Friends tab, Profile tab).
 class SignInGate extends StatelessWidget {
   const SignInGate({super.key, required this.controller});
 
@@ -33,12 +33,6 @@ class SignInGate extends StatelessWidget {
             key: const Key('signInGoogleButton'),
             onPressed: authenticating ? null : controller.signInWithGoogle,
             child: const Text('Continue with Google'),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          ElevatedButton(
-            key: const Key('signInGithubButton'),
-            onPressed: authenticating ? null : controller.signInWithGithub,
-            child: const Text('Continue with GitHub'),
           ),
           if (authenticating) ...[
             const SizedBox(height: AppSpacing.lg),

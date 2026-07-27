@@ -1,5 +1,5 @@
 [auth]
-allowed_redirect_urls = []
+allowed_redirect_urls = ["bardizz://auth/callback"]
 require_email_verification = true
 verify_email_method = "code"
 reset_password_method = "code"

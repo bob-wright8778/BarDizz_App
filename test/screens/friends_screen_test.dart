@@ -69,7 +69,6 @@ void main() {
     await pump(tester, controller);
 
     expect(find.byKey(const Key('signInGoogleButton')), findsOneWidget);
-    expect(find.byKey(const Key('signInGithubButton')), findsOneWidget);
     expect(find.byKey(const Key('addFriendButton')), findsNothing);
   });
 
