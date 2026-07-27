@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- stick / ice-blue-primary -->
+  <circle cx="32" cy="32" r="31" fill="#181B1E" stroke="#2B3033" stroke-width="2" />
+  <rect x="14" y="44" width="34" height="6" rx="3" fill="#6FA9C2"
+      transform="rotate(-35 14 44)" />
+  <rect x="10" y="40" width="10" height="14" rx="2" fill="#6FA9C2"
+      transform="rotate(-35 10 40)" />
+  <circle cx="44" cy="46" r="7" fill="#2B3033" />
+</svg>

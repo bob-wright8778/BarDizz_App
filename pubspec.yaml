@@ -32,6 +32,21 @@ dependencies:
   # promoted to a direct dependency here since we use it ourselves.
   shared_preferences: ^2.5.5
 
+  # REST calls to the InsForge auth/profile endpoints.
+  http: ^1.6.0
+
+  # Encrypted on-device storage for OAuth access/refresh tokens.
+  flutter_secure_storage: ^10.3.1
+
+  # Captures the OAuth redirect (bardizz://auth/callback) from the system browser.
+  flutter_web_auth_2: ^5.0.3
+
+  # SHA-256 for the PKCE code_challenge.
+  crypto: ^3.0.7
+
+  # Renders the bundled avatar SVGs.
+  flutter_svg: ^2.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -39,6 +54,11 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # 24 hockey-themed avatars (assets/avatars/avatar-01.svg .. avatar-24.svg),
+  # generated deterministically by tool/generate_avatars.dart.
+  assets:
+    - assets/avatars/
 
   # Bundled locally (not the google_fonts package) so the app stays fully
   # offline, matching its otherwise no-network design. Manrope ships from

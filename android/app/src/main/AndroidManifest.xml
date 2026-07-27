@@ -29,6 +29,19 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
+            <!-- Android App Link for the challenge-a-friend email (ticket 05,
+                 AC-C5): opens the app for https://bardizz.ca/challenge links.
+                 autoVerify requires /.well-known/assetlinks.json hosted at
+                 bardizz.ca (manual infra step); until then the OS shows a
+                 chooser instead of hard-routing. Uninstalled devices fall
+                 through to the browser, which routes on to the store. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="bardizz.ca" android:pathPrefix="/challenge" />
+            </intent-filter>
         </activity>
 
         <!-- flutter_foreground_task's service, declared with the
@@ -38,6 +51,23 @@
             android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
             android:foregroundServiceType="microphone"
             android:exported="false" />
+
+        <!-- flutter_web_auth_2's redirect-catcher: routes the OAuth
+             provider's bardizz://auth/callback redirect back into the app
+             (ticket 02, sign-in). -->
+        <activity
+            android:name="com.linusu.flutter_web_auth_2.CallbackActivity"
+            android:exported="true"
+            android:taskAffinity="">
+            <intent-filter android:label="flutter_web_auth_2">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="bardizz" />
+            </intent-filter>
+        </activity>
 
         <meta-data
             android:name="flutterEmbedding"

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- puck / warning -->
+  <circle cx="32" cy="32" r="31" fill="#181B1E" stroke="#2B3033" stroke-width="2" />
+  <ellipse cx="32" cy="36" rx="20" ry="9" fill="#2B3033" />
+  <ellipse cx="32" cy="32" rx="20" ry="9" fill="#E8A23D" />
+  <ellipse cx="32" cy="32" rx="12" ry="4" fill="#181B1E" opacity="0.35" />
+</svg>

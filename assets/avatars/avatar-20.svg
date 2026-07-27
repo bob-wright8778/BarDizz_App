@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- jersey / ice-blue-light -->
+  <circle cx="32" cy="32" r="31" fill="#181B1E" stroke="#2B3033" stroke-width="2" />
+  <path d="M18 20l10-6 4 5 4-5 10 6 6 8-6 4v22H18V32l-6-4z" fill="#B9DCE7" />
+  <path d="M28 14l4 5 4-5" stroke="#181B1E" stroke-width="2" fill="none" />
+</svg>
