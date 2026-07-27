@@ -60,5 +60,24 @@
 	<array>
 		<string>audio</string>
 	</array>
+
+	<!-- Universal Link for the challenge email (ticket 05, AC-C5) is NOT
+	     configured here: iOS routes universal links via the Associated Domains
+	     entitlement (applinks:bardizz.ca) plus an apple-app-site-association
+	     file hosted at bardizz.ca, both set up in Xcode with a paid Apple
+	     Developer account. Deferred to an on-device iOS pass (Android is the
+	     primary target). -->
+
+	<!-- OAuth redirect catcher for flutter_web_auth_2 (ticket 02, sign-in):
+	     best-effort, not verified on-device on this machine. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>bardizz</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

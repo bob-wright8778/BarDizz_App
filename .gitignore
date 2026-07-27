@@ -43,3 +43,18 @@ test-audio/
 # Python training/validation pipeline for the on-device classifier (manifest,
 # venv, generated prediction dumps) — scratch workspace, not part of the app
 tool/ml_investigation/
+
+# InsForge & AI agent skills
+.insforge
+.agent
+.agents
+.augment
+.claude
+.cline
+.github/copilot*
+.kilocode
+.qoder
+.qwen
+.roo
+.trae
+.windsurf

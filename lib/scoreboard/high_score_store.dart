@@ -61,6 +61,10 @@ class HighScoreStore {
     return winner;
   }
 
+  /// Outputs: the persisted high score, or null if no session was ever recorded
+  /// (distinct from a recorded all-zero session).
+  Future<HighScoreSession?> loadRecordedOrNull() => _loadRecorded();
+
   /// Clears the persisted high score back to "nothing recorded yet".
   Future<void> reset() async {
     final prefs = await SharedPreferences.getInstance();

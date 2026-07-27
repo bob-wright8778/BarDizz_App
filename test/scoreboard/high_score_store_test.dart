@@ -149,6 +149,25 @@ void main() {
       expect(loaded.shots, 8, reason: 'reset must clear back to "nothing recorded", not just to zeros');
     });
 
+    test('loadRecordedOrNull returns null before anything is saved, distinct from load()\'s zeroed default',
+        () async {
+      const store = HighScoreStore();
+
+      expect(await store.loadRecordedOrNull(), isNull);
+    });
+
+    test('loadRecordedOrNull returns the recorded session once one has been saved, including a real 0% one',
+        () async {
+      const store = HighScoreStore();
+      await store.considerSession(sessionShots: 5, sessionAutoBarDowns: 0, sessionManualBarDowns: 0);
+
+      final recorded = await store.loadRecordedOrNull();
+
+      expect(recorded, isNotNull);
+      expect(recorded!.shots, 5);
+      expect(recorded.barDowns, 0);
+    });
+
     test('resetting the high score leaves the independently-persisted all-time scoreboard untouched',
         () async {
       const highScoreStore = HighScoreStore();
