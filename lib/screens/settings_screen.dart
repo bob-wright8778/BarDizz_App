@@ -8,13 +8,15 @@ import '../widgets/app_card.dart';
 
 /// Settings screen: the all-time sound-only vs. manually-added bar-down
 /// breakdown, independent Reset Scoreboard / Reset High Score actions, the
-/// "count standalone Eww as bar-down" toggle, plus an optional entry to the
-/// raw mic debug meter (ticket 01's capture proof-of-concept), which stopped
-/// being reachable once the session screen became the app's home.
+/// "count standalone Eww as bar-down" toggle, plus optional entries to the
+/// raw mic debug meter (ticket 01's capture proof-of-concept, which stopped
+/// being reachable once the session screen became the app's home) and the
+/// data-collection mode (live event tagging for classifier training data).
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     super.key,
     this.onDebugMeterTap,
+    this.onDataCollectionTap,
     this.scoreboardStore = const AllTimeScoreboardStore(),
     this.highScoreStore = const HighScoreStore(),
     this.ewwAlwaysBarDownStore = const EwwAlwaysBarDownStore(),
@@ -22,6 +24,7 @@ class SettingsScreen extends StatefulWidget {
   });
 
   final VoidCallback? onDebugMeterTap;
+  final VoidCallback? onDataCollectionTap;
   final AllTimeScoreboardStore scoreboardStore;
   final HighScoreStore highScoreStore;
   final EwwAlwaysBarDownStore ewwAlwaysBarDownStore;
@@ -135,6 +138,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       leading: const Icon(Icons.bug_report),
                       title: const Text('Debug meter'),
                       onTap: widget.onDebugMeterTap,
+                    ),
+                  if (widget.onDataCollectionTap != null)
+                    ListTile(
+                      key: const Key('dataCollectionTile'),
+                      leading: const Icon(Icons.mic),
+                      title: const Text('Data collection'),
+                      onTap: widget.onDataCollectionTap,
                     ),
                   ListTile(
                     key: const Key('resetScoreboardTile'),

@@ -47,6 +47,11 @@ dependencies:
   # Renders the bundled avatar SVGs.
   flutter_svg: ^2.3.0
 
+  # Resolves the app's external-files directory for data-collection-mode
+  # clip storage. Already in the dependency tree transitively; promoted to a
+  # direct dependency since we use it ourselves.
+  path_provider: ^2.1.6
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

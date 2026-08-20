@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'audio/data_collection_controller.dart';
 import 'audio/mic_level_controller.dart';
 import 'backend/auth_controller.dart';
 import 'backend/challenge_client.dart';
@@ -14,6 +15,7 @@ import 'backend/oauth_browser.dart';
 import 'backend/secure_token_store.dart';
 import 'backend/snapshot_sync_controller.dart';
 import 'backend/snapshots_client.dart';
+import 'screens/data_collection_screen.dart';
 import 'screens/debug_meter_screen.dart';
 import 'screens/nav_shell.dart';
 import 'screens/session_screen.dart';
@@ -129,6 +131,7 @@ class _AppHomeGateState extends State<AppHomeGate> with WidgetsBindingObserver {
       MaterialPageRoute(
         builder: (_) => SettingsScreen(
           onDebugMeterTap: () => _openDebugMeter(context),
+          onDataCollectionTap: () => _openDataCollectionMode(context),
           onEwwAlwaysBarDownChanged: _onEwwAlwaysBarDownChanged,
         ),
       ),
@@ -141,6 +144,14 @@ class _AppHomeGateState extends State<AppHomeGate> with WidgetsBindingObserver {
         builder: (_) => DebugMeterScreen(
           controller: LiveMicLevelController(ewwAlwaysBarDown: _currentEwwAlwaysBarDown),
         ),
+      ),
+    );
+  }
+
+  void _openDataCollectionMode(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DataCollectionScreen(controller: LiveDataCollectionController()),
       ),
     );
   }
