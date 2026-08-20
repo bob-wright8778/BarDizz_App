@@ -33,6 +33,29 @@ void main() {
     expect(tapped, isTrue);
   });
 
+  testWidgets('no data collection entry when onDataCollectionTap is not provided',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: const SettingsScreen()),
+    );
+
+    expect(find.byKey(const Key('dataCollectionTile')), findsNothing);
+  });
+
+  testWidgets('tapping Data collection calls onDataCollectionTap', (tester) async {
+    var tapped = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettingsScreen(onDataCollectionTap: () => tapped = true),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('dataCollectionTile')));
+    await tester.pump();
+
+    expect(tapped, isTrue);
+  });
+
   group('all-time bar-down breakdown', () {
     testWidgets('displays sound-only and manually-added counts summing to the bar-down total',
         (tester) async {
