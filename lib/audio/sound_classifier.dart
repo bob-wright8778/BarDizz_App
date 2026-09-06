@@ -71,7 +71,15 @@ String classifyLabel(
   List<ClassifierTree> trees,
   List<String> classLabels,
 ) {
-  final probabilities = classifyProbabilities(features, trees, classLabels);
+  return argmaxLabel(classifyProbabilities(features, trees, classLabels), classLabels);
+}
+
+/// Picks the label with the highest probability -- first-max-wins on a tie,
+/// matching numpy's `argmax`.
+///
+/// Inputs: [probabilities] one value per entry in [classLabels].
+/// Outputs: the winning label.
+String argmaxLabel(List<double> probabilities, List<String> classLabels) {
   var bestIndex = 0;
   for (var i = 1; i < probabilities.length; i++) {
     if (probabilities[i] > probabilities[bestIndex]) bestIndex = i;
@@ -87,3 +95,11 @@ String classifyLabel(
 /// Outputs: one of [classifierClassLabels].
 String classifySound(List<double> features) =>
     classifyLabel(features, classifierTrees, classifierClassLabels);
+
+/// Class probabilities for one [classifierFeatureNames]-ordered feature
+/// vector via the exported [classifierTrees] ensemble.
+///
+/// Inputs: [features] an 8-value feature vector.
+/// Outputs: a [classifierClassLabels]-ordered probability vector.
+List<double> classifySoundProbabilities(List<double> features) =>
+    classifyProbabilities(features, classifierTrees, classifierClassLabels);

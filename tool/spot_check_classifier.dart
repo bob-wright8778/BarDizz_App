@@ -13,6 +13,9 @@
 import 'dart:io';
 
 import 'package:hockey_shot_tracker/audio/classifier_features.dart';
+import 'package:hockey_shot_tracker/audio/classifier_model.dart';
+import 'package:hockey_shot_tracker/audio/impact_count.dart';
+import 'package:hockey_shot_tracker/audio/pcm16.dart';
 import 'package:hockey_shot_tracker/audio/sound_classifier.dart';
 import 'package:hockey_shot_tracker/audio/wav_reader.dart';
 
@@ -32,13 +35,20 @@ void main(List<String> args) {
     }
 
     final wav = readWav(file.readAsBytesSync());
-    final features = extractClassifierFeatures(wav.pcm16Mono, sampleRate: wav.sampleRate);
-    final predicted = classifySound(features);
+    final samples = decodePcm16(wav.pcm16Mono);
+    final features = extractClassifierFeaturesFromSamples(samples, sampleRate: wav.sampleRate);
+    final probabilities = classifySoundProbabilities(features);
+    final predicted = argmaxLabel(probabilities, classifierClassLabels);
+    final impacts = countImpacts(samples, sampleRate: wav.sampleRate);
 
     print(path);
     for (var i = 0; i < classifierFeatureNames.length; i++) {
       print('  ${classifierFeatureNames[i]}: ${features[i]}');
     }
+    for (var i = 0; i < classifierClassLabels.length; i++) {
+      print('  p(${classifierClassLabels[i]}): ${probabilities[i].toStringAsFixed(3)}');
+    }
+    print('  impacts: $impacts');
     print('  predicted: $predicted');
   }
 }
