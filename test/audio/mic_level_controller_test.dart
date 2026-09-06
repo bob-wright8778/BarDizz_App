@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hockey_shot_tracker/audio/classifier_detector.dart';
+import 'package:hockey_shot_tracker/audio/classifier_model.dart';
 import 'package:hockey_shot_tracker/audio/mic_capture_service.dart';
 import 'package:hockey_shot_tracker/audio/mic_level_controller.dart';
 
@@ -19,12 +20,16 @@ import 'synthetic_audio.dart';
 // thresholds are picked to fall well inside that reachable range (peaks of
 // 0.95/0.6/0.35 below give RMS ~0.67/~0.42/~0.25 respectively) rather than at
 // round fractions of 1.0, which a sine chunk could never actually reach.
-String _fakeClassify(List<double> features) {
+List<double> _fakeClassify(List<double> features) {
   final amplitude = features[6];
-  if (amplitude > 0.55) return 'shot';
-  if (amplitude > 0.35) return 'bar-hit';
-  if (amplitude > 0.15) return 'eww';
-  return 'background-quiet';
+  final label = amplitude > 0.55
+      ? 'shot'
+      : amplitude > 0.35
+          ? 'bar-hit'
+          : amplitude > 0.15
+              ? 'eww'
+              : 'background-quiet';
+  return [for (final l in classifierClassLabels) l == label ? 1.0 : 0.0];
 }
 
 Uint8List _shotChunk() => sineWave([const MapEntry(1000.0, 0.95)]);

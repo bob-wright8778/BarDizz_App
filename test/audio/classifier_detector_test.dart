@@ -3,14 +3,15 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hockey_shot_tracker/audio/classifier_detector.dart';
 import 'package:hockey_shot_tracker/audio/classifier_features.dart';
+import 'package:hockey_shot_tracker/audio/classifier_model.dart';
 
 import 'synthetic_audio.dart';
 
-/// Deterministic stand-in for the real 200-tree classifier: returns
-/// [labels] in call order (repeating the last one past the end), recording
-/// every feature vector it was called with, so windowing/refractory/confirm-
-/// window mechanics can be tested without depending on real audio shaping a
-/// specific real-model prediction.
+/// Deterministic stand-in for the real 200-tree classifier: returns a
+/// one-hot probability vector for [labels] in call order (repeating the last
+/// one past the end), recording every feature vector it was called with, so
+/// windowing/refractory/confirm-window mechanics can be tested without
+/// depending on real audio shaping a specific real-model prediction.
 class _FakeClassifier {
   _FakeClassifier(this.labels);
 
@@ -18,13 +19,17 @@ class _FakeClassifier {
   final List<List<double>> callFeatures = [];
   int _index = 0;
 
-  String call(List<double> features) {
+  List<double> call(List<double> features) {
     callFeatures.add(features);
     final label = labels[_index < labels.length ? _index : labels.length - 1];
     _index++;
-    return label;
+    return oneHot(label);
   }
 }
+
+/// A fully confident probability vector for [label], in [classifierClassLabels] order.
+List<double> oneHot(String label) =>
+    [for (final l in classifierClassLabels) l == label ? 1.0 : 0.0];
 
 Uint8List _loudChunk({int sampleCount = 320}) => sineWave([const MapEntry(1000.0, 0.9)], sampleCount: sampleCount);
 
@@ -354,10 +359,129 @@ void main() {
     });
   });
 
+  group('ClassifierDetector shot gate', () {
+    // 200ms window = 3200 samples @16kHz. Each tap is a 20ms burst (320
+    // samples) followed by silence, so the 10ms envelope sees a clean rise
+    // and release per tap.
+    const window = ClassifierDetectorConfig(windowDuration: Duration(milliseconds: 200));
+    final tap = _loudChunk();
+    final gap = silentChunk(sampleCount: 960);
+
+    ClassifiedEvent? feed(ClassifierDetector detector, List<Uint8List> chunks) {
+      ClassifiedEvent? last;
+      for (final chunk in chunks) {
+        last = detector.detect(chunk);
+      }
+      return last;
+    }
+
+    test('a confident single-impact shot window is reported as a shot', () {
+      final fake = _FakeClassifier(['shot']);
+      final detector = ClassifierDetector(config: window, classify: fake.call);
+
+      expect(feed(detector, [tap, silentChunk(sampleCount: 2880)]), ClassifiedEvent.shot);
+      expect(detector.lastImpactCount, 1);
+      expect(detector.lastShotVeto, isNull);
+      expect(detector.lastProbabilities, oneHot('shot'));
+    });
+
+    test('a shot label with two impacts (crack plus puck strike) still counts as a shot', () {
+      final fake = _FakeClassifier(['shot']);
+      final detector = ClassifierDetector(config: window, classify: fake.call);
+
+      expect(feed(detector, [tap, gap, tap, silentChunk(sampleCount: 1600)]), ClassifiedEvent.shot);
+      expect(detector.lastImpactCount, 2);
+    });
+
+    test('a shot label with three impacts in one window is demoted to stick-handling', () {
+      final fake = _FakeClassifier(['shot']);
+      final detector = ClassifierDetector(config: window, classify: fake.call);
+
+      expect(feed(detector, [tap, gap, tap, gap, tap, silentChunk(sampleCount: 320)]), isNull);
+      expect(detector.lastImpactCount, 3);
+      expect(detector.lastShotVeto, ShotVeto.tooManyImpacts);
+      expect(detector.lastLabel, 'stick-handling');
+    });
+
+    test('raising maxShotImpacts disables the impact veto', () {
+      final fake = _FakeClassifier(['shot']);
+      final detector = ClassifierDetector(
+        config: const ClassifierDetectorConfig(windowDuration: Duration(milliseconds: 200), maxShotImpacts: 99),
+        classify: fake.call,
+      );
+
+      expect(feed(detector, [tap, gap, tap, gap, tap, silentChunk(sampleCount: 320)]), ClassifiedEvent.shot);
+    });
+
+    test('a plurality shot win below shotMinProbability is demoted to stick-handling', () {
+      // shot 0.35 beats every other class but is short of the 0.5 default.
+      final detector = ClassifierDetector(
+        config: const ClassifierDetectorConfig(windowDuration: Duration(milliseconds: 20)),
+        classify: (_) => [0.2, 0.1, 0.1, 0.35, 0.25],
+      );
+
+      expect(detector.detect(_loudChunk()), isNull);
+      expect(detector.lastShotVeto, ShotVeto.lowConfidence);
+      expect(detector.lastLabel, 'stick-handling');
+      expect(detector.lastProbabilities, [0.2, 0.1, 0.1, 0.35, 0.25]);
+    });
+
+    test('a shot exactly at shotMinProbability passes the gate', () {
+      final detector = ClassifierDetector(
+        config: const ClassifierDetectorConfig(windowDuration: Duration(milliseconds: 20)),
+        classify: (_) => [0.2, 0.1, 0.1, 0.5, 0.1],
+      );
+
+      expect(detector.detect(_loudChunk()), ClassifiedEvent.shot);
+      expect(detector.lastShotVeto, isNull);
+    });
+
+    test('shotMinProbability 0.0 restores plain plurality behavior', () {
+      final detector = ClassifierDetector(
+        config: const ClassifierDetectorConfig(windowDuration: Duration(milliseconds: 20), shotMinProbability: 0.0),
+        classify: (_) => [0.2, 0.1, 0.1, 0.35, 0.25],
+      );
+
+      expect(detector.detect(_loudChunk()), ClassifiedEvent.shot);
+    });
+
+    test('the gate leaves non-shot labels alone, even at low confidence', () {
+      final detector = ClassifierDetector(
+        config: const ClassifierDetectorConfig(windowDuration: Duration(milliseconds: 20)),
+        classify: (_) => [0.2, 0.1, 0.3, 0.2, 0.2],
+      );
+
+      expect(detector.detect(_loudChunk()), ClassifiedEvent.barDown, reason: 'standalone eww, ewwAlwaysBarDown default');
+      expect(detector.lastShotVeto, isNull);
+    });
+
+    test('a demoted shot is treated as stick-handling inside an open bar-hit confirm window', () {
+      var now = DateTime(2026);
+      final fake = _FakeClassifier(['bar-hit', 'shot', 'eww']);
+      final detector = ClassifierDetector(
+        config: const ClassifierDetectorConfig(
+          windowDuration: Duration(milliseconds: 200),
+          refractoryWindow: Duration(milliseconds: 50),
+          barDownConfirmWindow: Duration(seconds: 2),
+        ),
+        now: () => now,
+        classify: fake.call,
+      );
+
+      expect(feed(detector, [tap, silentChunk(sampleCount: 2880)]), isNull, reason: 'bar-hit opens the confirm window');
+      now = now.add(const Duration(milliseconds: 300));
+      expect(feed(detector, [tap, gap, tap, gap, tap, silentChunk(sampleCount: 320)]), isNull,
+          reason: 'three impacts: the shot is vetoed, not counted');
+      now = now.add(const Duration(milliseconds: 300));
+      expect(feed(detector, [tap, silentChunk(sampleCount: 2880)]), ClassifiedEvent.barDown,
+          reason: 'the confirm window survived the vetoed shot');
+    });
+  });
+
   group('ClassifierDetector real-model wiring smoke test', () {
     test('a real triggered window is classified via the real extractClassifierFeatures/classifySound path', () {
       // No fake classifier here -- exercises the actual default wiring
-      // (ClassifierDetector()'s default `classify: classifySound`). A pure
+      // (ClassifierDetector()'s default `classify: classifySoundProbabilities`). A pure
       // synthetic sine burst is not representative training audio, so the
       // resulting label isn't meaningful as an accuracy check (ticket 2's
       // spot-check already covers that against real clips) -- this only

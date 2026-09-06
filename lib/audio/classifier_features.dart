@@ -52,8 +52,14 @@ double computeZeroCrossingRateFromSamples(List<int> samples) {
 ///
 /// Inputs: [pcm16Bytes] raw PCM16 audio; [sampleRate] the capture rate.
 /// Outputs: an 8-value feature vector.
-List<double> extractClassifierFeatures(Uint8List pcm16Bytes, {int sampleRate = micSampleRate}) {
-  final samples = decodePcm16(pcm16Bytes);
+List<double> extractClassifierFeatures(Uint8List pcm16Bytes, {int sampleRate = micSampleRate}) =>
+    extractClassifierFeaturesFromSamples(decodePcm16(pcm16Bytes), sampleRate: sampleRate);
+
+/// Same as [extractClassifierFeatures], for pre-decoded samples.
+///
+/// Inputs: [samples] signed 16-bit PCM samples; [sampleRate] the capture rate.
+/// Outputs: an 8-value feature vector.
+List<double> extractClassifierFeaturesFromSamples(List<int> samples, {int sampleRate = micSampleRate}) {
   final profile = computeSpectralProfileFromSamples(samples, sampleRate: sampleRate);
   final amplitude = computeAmplitudeFromSamples(samples);
   final zeroCrossingRate = computeZeroCrossingRateFromSamples(samples);
