@@ -46,6 +46,33 @@ void main() {
     await drawBox(tester, const Offset(0.4, 0.1), const Offset(0.6, 0.3));
   }
 
+  testWidgets('a steep, finger-like drag draws a box instead of scrolling the page', (tester) async {
+    final feed = FakeVideoShotFeed(still: syntheticFrame(discs: [(0.5, 0.8, 0.03)]));
+    await pump(tester, feed);
+    await drawBox(tester, const Offset(0.35, 0.6), const Offset(0.65, 0.95));
+    await tester.tap(find.text('Net'));
+    await tester.pump();
+
+    // A real finger moves a few pixels per event; a near-square box means a
+    // steep drag that the page's vertical scroll would otherwise claim.
+    final canvas = find.byKey(const Key('calibrationCanvas'));
+    final topLeft = tester.getTopLeft(canvas);
+    final size = tester.getSize(canvas);
+    final gesture = await tester.startGesture(topLeft + Offset(0.4 * size.width, 0.1 * size.height));
+    for (var i = 0; i < 30; i++) {
+      await gesture.moveBy(const Offset(2, 3));
+      await tester.pump();
+    }
+    await gesture.up();
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('calibrationSaveButton')));
+    await tester.pumpAndSettle();
+    final net = feed.calibration!.net;
+    expect(net.width * size.width, closeTo(60, 2));
+    expect(net.height * size.height, closeTo(90, 2));
+  });
+
   testWidgets('says so when the camera is not running', (tester) async {
     await pump(tester, FakeVideoShotFeed());
     expect(find.byKey(const Key('calibrationNoCameraText')), findsOneWidget);

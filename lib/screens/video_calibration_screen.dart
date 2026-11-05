@@ -228,14 +228,25 @@ class _VideoCalibrationScreenState extends State<VideoCalibrationScreen> {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final size = constraints.biggest;
-                    return GestureDetector(
+                    // The page scrolls vertically, and a plain pan loses any
+                    // steep drag to that scroll, so a box taller than about
+                    // half its width could never be drawn. Claiming the
+                    // pointer on touch keeps every drag on the picture.
+                    return RawGestureDetector(
                       key: const Key('calibrationCanvas'),
-                      // Box corners start where the finger lands, not where
-                      // the drag is first recognised a few pixels later.
-                      dragStartBehavior: DragStartBehavior.down,
-                      onPanStart: (d) => _onPanStart(d, size),
-                      onPanUpdate: (d) => _onPanUpdate(d, size),
-                      onPanEnd: (_) => _onPanEnd(),
+                      gestures: {
+                        _ImmediatePanGestureRecognizer:
+                            GestureRecognizerFactoryWithHandlers<_ImmediatePanGestureRecognizer>(
+                          _ImmediatePanGestureRecognizer.new,
+                          (r) {
+                            // Box corners start where the finger lands.
+                            r.dragStartBehavior = DragStartBehavior.down;
+                            r.onStart = (d) => _onPanStart(d, size);
+                            r.onUpdate = (d) => _onPanUpdate(d, size);
+                            r.onEnd = (_) => _onPanEnd();
+                          },
+                        ),
+                      },
                       child: CustomPaint(
                         foregroundPainter: _MarkingsPainter(zone: _zone, net: _net),
                         child: RawImage(image: image, fit: BoxFit.fill, filterQuality: FilterQuality.none),
@@ -334,6 +345,16 @@ class _VideoCalibrationScreenState extends State<VideoCalibrationScreen> {
         ),
       ),
     );
+  }
+}
+
+/// A pan that wins the gesture arena as soon as the finger touches down,
+/// before the enclosing scroll view can claim the drag.
+class _ImmediatePanGestureRecognizer extends PanGestureRecognizer {
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    super.addAllowedPointer(event);
+    resolve(GestureDisposition.accepted);
   }
 }
 
