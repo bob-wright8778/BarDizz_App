@@ -50,7 +50,11 @@
 
 	<!-- Mic capture (ticket 01) -->
 	<key>NSMicrophoneUsageDescription</key>
-	<string>BarDizz listens for the sound of your stick hitting the puck to count shots automatically.</string>
+	<string>BarDizz listens for the sound of your stick hitting the puck to confirm shots and catch bar downs.</string>
+
+	<!-- Video shot detection -->
+	<key>NSCameraUsageDescription</key>
+	<string>BarDizz watches the puck leave your stick to count your shots and measure their speed.</string>
 
 	<!-- Universal Link for the challenge email (ticket 05, AC-C5) is NOT
 	     configured here: iOS routes universal links via the Associated Domains

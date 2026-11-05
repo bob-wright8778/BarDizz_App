@@ -1,8 +1,34 @@
 # Hockey Shot Tracker
 
-A hockey shot-practice app that counts shots automatically by listening for the sound of a stick hitting the puck, instead of requiring a manual tap per shot.
+A hockey shot-practice app that counts and analyses shots automatically with the phone's camera, using the sound of the stick hitting the puck to confirm them, instead of requiring a manual tap per shot.
 
 Flutter app, Android + iOS.
+
+## How shots are detected
+
+Mount the phone sideways behind or beside the shooter so the shooting spot
+and the net are both in view, then mark both once under
+Settings → Camera setup. The app only captures while it's open, and keeps the
+screen on during a session.
+
+- **Shot (camera, `lib/video/`):** each frame's luma plane is shrunk to a
+  192-wide grid. A dark, puck-sized, compact blob sitting in the shooting spot
+  that vanishes (a released puck blurs out of the frame almost at once) and
+  doesn't reappear within 400 ms is a shot. If it reappears, it was only
+  hidden by the stick or a skate. The first movement inside the net area
+  afterwards gives flight time, speed (using the shooting distance you set)
+  and a 3×3 target zone.
+- **Confirmation (mic):** a camera shot counts only if the mic heard an impact
+  within 350 ms of release. This can be turned off in Settings.
+- **Bar down (mic):** unchanged. It still comes from the sound classifier
+  (bar ping + "Eww").
+- **Fallback:** if the camera isn't set up or can't open, shots are counted
+  by the sound classifier alone, as before.
+
+Known limits of this first, untrained version: it needs a light shooting pad
+against a black puck; the shooter shouldn't stand between the camera and the
+net; and speed is coarse, since 30–60 fps frame timing limits it to roughly
+±10%.
 
 ## Ticket 01 status: mic capture proof-of-concept
 

@@ -2,6 +2,10 @@
     <!-- Mic capture (ticket 01) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- Video shot detection -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
     <application
         android:label="BarDizz"
         android:name="${applicationName}"

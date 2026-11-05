@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import '../scoreboard/all_time_scoreboard_store.dart';
 import '../scoreboard/high_score_store.dart';
 import '../settings/eww_always_bar_down_store.dart';
+import '../settings/video_settings_store.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/app_card.dart';
 
 /// Settings screen: the all-time sound-only vs. manually-added bar-down
 /// breakdown, independent Reset Scoreboard / Reset High Score actions, the
-/// "count standalone Eww as bar-down" toggle, plus optional entries to the
+/// "count standalone Eww as bar-down" toggle, camera setup and the "require
+/// stick sound" toggle for video shot detection, plus optional entries to the
 /// raw mic debug meter (ticket 01's capture proof-of-concept, which stopped
 /// being reachable once the session screen became the app's home) and the
 /// data-collection mode (live event tagging for classifier training data).
@@ -21,6 +23,9 @@ class SettingsScreen extends StatefulWidget {
     this.highScoreStore = const HighScoreStore(),
     this.ewwAlwaysBarDownStore = const EwwAlwaysBarDownStore(),
     this.onEwwAlwaysBarDownChanged,
+    this.onCalibrateTap,
+    this.videoSettingsStore = const VideoSettingsStore(),
+    this.onRequireSoundChanged,
   });
 
   final VoidCallback? onDebugMeterTap;
@@ -29,6 +34,9 @@ class SettingsScreen extends StatefulWidget {
   final HighScoreStore highScoreStore;
   final EwwAlwaysBarDownStore ewwAlwaysBarDownStore;
   final ValueChanged<bool>? onEwwAlwaysBarDownChanged;
+  final VoidCallback? onCalibrateTap;
+  final VideoSettingsStore videoSettingsStore;
+  final ValueChanged<bool>? onRequireSoundChanged;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -37,12 +45,25 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   AllTimeScoreboard? _scoreboard;
   bool _ewwAlwaysBarDown = ewwAlwaysBarDownDefault;
+  bool _requireSound = requireSoundDefault;
 
   @override
   void initState() {
     super.initState();
     _loadScoreboard();
     _loadEwwAlwaysBarDown();
+    _loadRequireSound();
+  }
+
+  Future<void> _loadRequireSound() async {
+    final loaded = await widget.videoSettingsStore.loadRequireSound();
+    if (mounted) setState(() => _requireSound = loaded);
+  }
+
+  Future<void> _toggleRequireSound(bool value) async {
+    setState(() => _requireSound = value);
+    await widget.videoSettingsStore.saveRequireSound(value);
+    widget.onRequireSoundChanged?.call(value);
   }
 
   Future<void> _loadScoreboard() async {
@@ -132,6 +153,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (widget.onCalibrateTap != null)
+                    ListTile(
+                      key: const Key('cameraSetupTile'),
+                      leading: const Icon(Icons.videocam),
+                      title: const Text('Camera setup'),
+                      subtitle: const Text('Mark the shooting spot and net for video shot tracking.'),
+                      onTap: widget.onCalibrateTap,
+                    ),
+                  SwitchListTile(
+                    key: const Key('requireSoundSwitch'),
+                    secondary: const Icon(Icons.graphic_eq),
+                    title: const Text('Require stick sound for video shots'),
+                    subtitle: const Text(
+                        'Only count a shot the camera sees if the mic also hears the stick hit the puck.'),
+                    value: _requireSound,
+                    onChanged: _toggleRequireSound,
+                  ),
                   if (widget.onDebugMeterTap != null)
                     ListTile(
                       key: const Key('debugMeterTile'),

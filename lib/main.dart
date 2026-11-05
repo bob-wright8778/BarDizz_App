@@ -20,8 +20,11 @@ import 'screens/debug_meter_screen.dart';
 import 'screens/nav_shell.dart';
 import 'screens/session_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/video_calibration_screen.dart';
 import 'settings/eww_always_bar_down_store.dart';
+import 'settings/video_settings_store.dart';
 import 'theme/app_theme.dart';
+import 'video/video_shot_controller.dart';
 
 void main() {
   runApp(const HockeyShotTrackerApp());
@@ -40,8 +43,8 @@ class HockeyShotTrackerApp extends StatelessWidget {
   }
 }
 
-/// Hosts the nav shell and the persistent mic-level controller behind the
-/// session tab (settings/debug-meter navigation live here too).
+/// Hosts the nav shell and the persistent camera+mic session controller
+/// behind the session tab (settings/debug-meter navigation live here too).
 class AppHomeGate extends StatefulWidget {
   const AppHomeGate({super.key});
 
@@ -54,14 +57,18 @@ class _AppHomeGateState extends State<AppHomeGate> with WidgetsBindingObserver {
   // the getters below stay synchronous; loaded once at startup and kept in
   // sync with Settings via _onEwwAlwaysBarDownChanged.
   bool _ewwAlwaysBarDown = ewwAlwaysBarDownDefault;
+  bool _requireSound = requireSoundDefault;
 
   // Created once and reused across rebuilds (e.g. rotation), rather than
   // per-build, so a running session's controller is never swapped out from
   // under SessionScreen's stream subscription mid-session. Reads
   // _ewwAlwaysBarDown via a getter (not a fixed value) so toggling Settings
   // takes effect on the next classified window, no restart needed.
-  late final LiveMicLevelController _sessionController =
-      LiveMicLevelController(ewwAlwaysBarDown: _currentEwwAlwaysBarDown);
+  // requireSound is read once per session start.
+  late final LiveVideoShotController _sessionController = LiveVideoShotController(
+    ewwAlwaysBarDown: _currentEwwAlwaysBarDown,
+    requireSound: () => _requireSound,
+  );
 
   // Owns Friends/Profile sign-in state for the whole app lifetime, restored
   // from a stored refresh token (if any) once at startup below. The Session
@@ -91,6 +98,7 @@ class _AppHomeGateState extends State<AppHomeGate> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadEwwAlwaysBarDown();
+    _loadRequireSound();
     // Publish any pending high-score/profile change once a restored session is
     // known, so a new high score reaches the backend on the next app
     // foreground even if the user never opens the Friends tab (AC-F4).
@@ -126,6 +134,17 @@ class _AppHomeGateState extends State<AppHomeGate> with WidgetsBindingObserver {
     setState(() => _ewwAlwaysBarDown = value);
   }
 
+  Future<void> _loadRequireSound() async {
+    final loaded = await const VideoSettingsStore().loadRequireSound();
+    if (mounted) setState(() => _requireSound = loaded);
+  }
+
+  void _openCalibration(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => VideoCalibrationScreen(feed: _sessionController)),
+    );
+  }
+
   Future<void> _openSettings(BuildContext context) {
     return Navigator.of(context).push(
       MaterialPageRoute(
@@ -133,6 +152,8 @@ class _AppHomeGateState extends State<AppHomeGate> with WidgetsBindingObserver {
           onDebugMeterTap: () => _openDebugMeter(context),
           onDataCollectionTap: () => _openDataCollectionMode(context),
           onEwwAlwaysBarDownChanged: _onEwwAlwaysBarDownChanged,
+          onCalibrateTap: () => _openCalibration(context),
+          onRequireSoundChanged: (v) => setState(() => _requireSound = v),
         ),
       ),
     );
@@ -162,6 +183,8 @@ class _AppHomeGateState extends State<AppHomeGate> with WidgetsBindingObserver {
       sessionScreen: SessionScreen(
         controller: _sessionController,
         onSettingsTap: () => _openSettings(context),
+        videoFeed: _sessionController,
+        onCalibrateTap: () => _openCalibration(context),
       ),
       authController: _authController,
       friendsClient: _friendsClient,

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hockey_shot_tracker/audio/mic_level_controller.dart';
@@ -7,6 +8,12 @@ import 'package:hockey_shot_tracker/scoreboard/all_time_scoreboard_store.dart';
 import 'package:hockey_shot_tracker/scoreboard/high_score_store.dart';
 import 'package:hockey_shot_tracker/screens/session_screen.dart';
 import 'package:hockey_shot_tracker/theme/design_tokens.dart';
+import 'package:hockey_shot_tracker/video/luma_frame.dart';
+import 'package:hockey_shot_tracker/video/norm_rect.dart';
+import 'package:hockey_shot_tracker/video/shot_fusion.dart';
+import 'package:hockey_shot_tracker/video/shot_tracker.dart';
+import 'package:hockey_shot_tracker/video/video_calibration.dart';
+import 'package:hockey_shot_tracker/video/video_shot_controller.dart';
 import 'package:hockey_shot_tracker/widgets/app_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -62,6 +69,32 @@ class FakeMicLevelController implements MicLevelController {
   }
 }
 
+class FakeVideoShotFeed implements VideoShotFeed {
+  final StreamController<ShotAnalysis> _analyses = StreamController<ShotAnalysis>.broadcast();
+  final ValueNotifier<ShotSource> sourceNotifier = ValueNotifier(ShotSource.soundOnly);
+  final ValueNotifier<LumaFrame?> _latestFrame = ValueNotifier(null);
+
+  @override
+  VideoCalibration? calibration;
+
+  @override
+  Stream<ShotAnalysis> get analyses => _analyses.stream;
+
+  @override
+  ValueListenable<ShotSource> get source => sourceNotifier;
+
+  @override
+  ValueListenable<LumaFrame?> get latestFrame => _latestFrame;
+
+  @override
+  Future<void> setCalibration(VideoCalibration c) async => calibration = c;
+
+  @override
+  Widget? buildPreview() => null;
+
+  void emit(ShotAnalysis a) => _analyses.add(a);
+}
+
 // Wraps the real store to let tests hold a save open (gate) or make it fail
 // (throwError, applied to the first call only -- e.g. dispose's own
 // unrelated fold shouldn't also be made to throw), for exercising races
@@ -114,6 +147,8 @@ void main() {
     AllTimeScoreboardStore scoreboardStore = const AllTimeScoreboardStore(),
     HighScoreStore highScoreStore = const HighScoreStore(),
     Future<void> Function()? onSettingsTap,
+    VideoShotFeed? videoFeed,
+    VoidCallback? onCalibrateTap,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -122,6 +157,8 @@ void main() {
           scoreboardStore: scoreboardStore,
           highScoreStore: highScoreStore,
           onSettingsTap: onSettingsTap,
+          videoFeed: videoFeed,
+          onCalibrateTap: onCalibrateTap,
         ),
       ),
     );
@@ -667,6 +704,44 @@ void main() {
     controller.emitShotCount(1);
     await pumpAfterStreamEvent(tester);
     expect(textAt(tester, 'sessionShotCountText').data, '4');
+  });
+
+  group('camera panel', () {
+    testWidgets('is absent without a video feed', (tester) async {
+      await pumpScreen(tester);
+      expect(find.byKey(const Key('videoSoundOnlyText')), findsNothing);
+      expect(find.byKey(const Key('lastShotSpeedValue')), findsNothing);
+    });
+
+    testWidgets('prompts camera setup when counting by sound only', (tester) async {
+      final feed = FakeVideoShotFeed();
+      var calibrateTaps = 0;
+      await pumpScreen(tester, videoFeed: feed, onCalibrateTap: () => calibrateTaps++);
+
+      expect(textAt(tester, 'videoSoundOnlyText').data, contains('Set up the camera'));
+      await tester.tap(find.byKey(const Key('videoCalibrateButton')));
+      expect(calibrateTaps, 1);
+    });
+
+    testWidgets('shows the last shot speed and target when tracking on video', (tester) async {
+      final feed = FakeVideoShotFeed()
+        ..calibration = const VideoCalibration(
+          shootingZone: NormRect(0.4, 0.6, 0.6, 0.9),
+          net: NormRect(0.4, 0.1, 0.6, 0.3),
+        )
+        ..sourceNotifier.value = ShotSource.video;
+      await pumpScreen(tester, videoFeed: feed);
+      expect(textAt(tester, 'lastShotSpeedValue').data, '–');
+
+      feed.emit(ShotAnalysis(
+        video: VideoShot(releaseTime: DateTime(2026), speedMph: 61.6, netHit: const NetHit(0.1, 0.1)),
+        soundConfirmed: true,
+      ));
+      await pumpAfterStreamEvent(tester);
+
+      expect(textAt(tester, 'lastShotSpeedValue').data, '62 mph');
+      expect(textAt(tester, 'lastShotTargetValue').data, 'Top left');
+    });
   });
 
   group('lifecycle and re-entrancy races', () {

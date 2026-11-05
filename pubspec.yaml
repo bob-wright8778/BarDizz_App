@@ -1,7 +1,7 @@
 name: hockey_shot_tracker
 description: >
-  A hockey shot-practice app that counts shots automatically by listening
-  for the sound of a stick hitting the puck.
+  A hockey shot-practice app that counts and analyses shots automatically
+  with the camera, confirmed by the sound of the stick hitting the puck.
 publish_to: 'none'
 version: 0.1.0+1
 
@@ -19,6 +19,12 @@ dependencies:
   # because it is actively maintained and exposes startStream() with a
   # pcm16bits encoder on both Android and iOS.
   record: ^7.1.1
+
+  # Back-camera frame stream for video shot detection (luma plane only).
+  camera: ^0.12.2
+
+  # Keeps the screen on during a session: the camera stops when it sleeps.
+  wakelock_plus: ^1.8.2
 
   # Runtime microphone permission request/check on both platforms.
   permission_handler: ^12.0.3

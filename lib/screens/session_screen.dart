@@ -6,6 +6,8 @@ import '../audio/mic_level_controller.dart';
 import '../scoreboard/all_time_scoreboard_store.dart';
 import '../scoreboard/high_score_store.dart';
 import '../theme/design_tokens.dart';
+import '../video/shot_fusion.dart';
+import '../video/video_shot_controller.dart';
 import '../widgets/app_card.dart';
 
 /// Lets the user run a shooting session under the BAR DIZZ challenge: mic
@@ -19,6 +21,9 @@ import '../widgets/app_card.dart';
 ///
 /// Capture only runs while the app is in the foreground: leaving the app
 /// stops it, and returning restarts it with the session's counts intact.
+///
+/// With a [videoFeed], a camera panel shows the live view, the last shot's
+/// speed and target, or a prompt to set the camera up.
 class SessionScreen extends StatefulWidget {
   const SessionScreen({
     super.key,
@@ -26,10 +31,14 @@ class SessionScreen extends StatefulWidget {
     this.onSettingsTap,
     this.scoreboardStore = const AllTimeScoreboardStore(),
     this.highScoreStore = const HighScoreStore(),
+    this.videoFeed,
+    this.onCalibrateTap,
   });
 
   final MicLevelController controller;
   final Future<void> Function()? onSettingsTap;
+  final VideoShotFeed? videoFeed;
+  final VoidCallback? onCalibrateTap;
   final AllTimeScoreboardStore scoreboardStore;
   final HighScoreStore highScoreStore;
 
@@ -362,6 +371,10 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
                 style: AppTypography.overline.copyWith(color: AppColors.iceBluePrimary),
               ),
               const SizedBox(height: AppSpacing.xl),
+              if (widget.videoFeed != null) ...[
+                _VideoPanel(feed: widget.videoFeed!, onCalibrateTap: widget.onCalibrateTap),
+                const SizedBox(height: AppSpacing.lg),
+              ],
               _TitledStatsCard(
                 title: 'HIGH SCORE',
                 titleKey: const Key('highScoreLabel'),
@@ -566,6 +579,118 @@ class _CorrectionDial extends StatelessWidget {
             icon: const Icon(Icons.remove_circle_outline),
             onPressed: onDecrement,
           ),
+      ],
+    );
+  }
+}
+
+/// Live camera view plus the most recent shot's analysis, or a prompt to
+/// calibrate when shots are being counted by sound alone.
+class _VideoPanel extends StatefulWidget {
+  const _VideoPanel({required this.feed, this.onCalibrateTap});
+
+  final VideoShotFeed feed;
+  final VoidCallback? onCalibrateTap;
+
+  @override
+  State<_VideoPanel> createState() => _VideoPanelState();
+}
+
+class _VideoPanelState extends State<_VideoPanel> {
+  late final StreamSubscription<ShotAnalysis> _subscription;
+  ShotAnalysis? _last;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscription = widget.feed.analyses.listen((a) => setState(() => _last = a));
+  }
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<ShotSource>(
+      valueListenable: widget.feed.source,
+      builder: (context, source, _) {
+        final preview = widget.feed.buildPreview();
+        return AppCard(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (preview != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  // CameraPreview keeps its own aspect ratio inside this height.
+                  child: SizedBox(height: 180, child: Center(child: preview)),
+                ),
+              const SizedBox(height: AppSpacing.sm),
+              if (source == ShotSource.soundOnly)
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.feed.calibration == null
+                            ? 'Counting shots by sound. Set up the camera to track shots on video.'
+                            : 'Camera unavailable. Counting shots by sound.',
+                        key: const Key('videoSoundOnlyText'),
+                        style: AppTypography.body,
+                      ),
+                    ),
+                    if (widget.onCalibrateTap != null)
+                      TextButton(
+                        key: const Key('videoCalibrateButton'),
+                        onPressed: widget.onCalibrateTap,
+                        child: const Text('Set up'),
+                      ),
+                  ],
+                )
+              else
+                _LastShot(analysis: _last),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LastShot extends StatelessWidget {
+  const _LastShot({required this.analysis});
+
+  final ShotAnalysis? analysis;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = analysis;
+    final speed = a?.video.speedMph;
+    final hit = a?.video.netHit;
+    return Row(
+      children: [
+        Expanded(
+          child: _TotalStat(
+            label: 'LAST SHOT',
+            value: a == null ? '–' : (speed == null ? '?' : '${speed.round()} mph'),
+            valueKey: const Key('lastShotSpeedValue'),
+          ),
+        ),
+        Expanded(
+          child: _TotalStat(
+            label: 'TARGET',
+            value: hit?.zoneLabel ?? '–',
+            valueKey: const Key('lastShotTargetValue'),
+          ),
+        ),
+        Icon(
+          a?.soundConfirmed ?? false ? Icons.graphic_eq : Icons.videocam_outlined,
+          key: const Key('lastShotSourceIcon'),
+          color: AppColors.ink300,
+        ),
       ],
     );
   }
