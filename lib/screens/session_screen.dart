@@ -1,20 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../audio/mic_level_controller.dart';
 import '../scoreboard/all_time_scoreboard_store.dart';
 import '../scoreboard/high_score_store.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/app_card.dart';
-
-/// Native channel that asks Android to background the app (`moveTaskToBack`)
-/// instead of finishing the Activity. Ending the Activity on system back would
-/// destroy the Flutter engine — and with it all in-memory session state —
-/// while the native foreground-service mic capture keeps running orphaned
-/// underneath, since it doesn't depend on the Dart isolate.
-const _systemNavChannel = MethodChannel('hockey_shot_tracker/system_nav');
 
 /// Lets the user run a shooting session under the BAR DIZZ challenge: mic
 /// capture starts automatically when the screen loads and keeps running for
@@ -24,6 +16,9 @@ const _systemNavChannel = MethodChannel('hockey_shot_tracker/system_nav');
 /// folds the session's current counts into the persisted all-time scoreboard,
 /// checks them against the high score, and resets both dials to 0 without
 /// stopping capture.
+///
+/// Capture only runs while the app is in the foreground: leaving the app
+/// stops it, and returning restarts it with the session's counts intact.
 class SessionScreen extends StatefulWidget {
   const SessionScreen({
     super.key,
@@ -42,12 +37,15 @@ class SessionScreen extends StatefulWidget {
   State<SessionScreen> createState() => _SessionScreenState();
 }
 
-class _SessionScreenState extends State<SessionScreen> {
+class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserver {
   late final StreamSubscription<int> _shotCountSubscription;
   late final StreamSubscription<int> _barDownCountSubscription;
   bool _capturing = false;
   bool _starting = false;
   bool _saving = false;
+  // Set while capture is stopped because the app left the foreground, so
+  // returning restarts it without zeroing the live session.
+  bool _pausedByLifecycle = false;
   String? _error;
 
   int _sessionShots = 0;
@@ -83,6 +81,7 @@ class _SessionScreenState extends State<SessionScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _shotCountSubscription = widget.controller.shotCount.listen(_onAutoShotCount);
     _barDownCountSubscription = widget.controller.barDownCount.listen(_onAutoBarDownCount);
     _loadScoreboard();
@@ -116,11 +115,39 @@ class _SessionScreenState extends State<SessionScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+        _pauseCapture();
+      case AppLifecycleState.resumed:
+        if (_pausedByLifecycle) _resumeCapture();
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+        break;
+    }
+  }
+
+  void _pauseCapture() {
+    if (!_capturing) return;
+    _capturing = false;
+    _pausedByLifecycle = true;
+    unawaited(widget.controller.stop());
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _resumeCapture() async {
+    _pausedByLifecycle = false;
+    await _startCapture(keepSessionCounts: true);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _shotCountSubscription.cancel();
     _barDownCountSubscription.cancel();
-    if (_capturing) {
-      widget.controller.stop();
+    if (_capturing || _pausedByLifecycle) {
+      if (_capturing) widget.controller.stop();
       // Fire-and-forget: dispose() can't await, and there's no widget left
       // to update once this returns. Folds the live session into the
       // scoreboard so it isn't silently lost if the screen is torn down some
@@ -186,16 +213,18 @@ class _SessionScreenState extends State<SessionScreen> {
     setState(() => apply(delta));
   }
 
-  /// Resets session and raw-baseline counters; only valid right after controller.start() resets its own.
-  void _resetForNewCapture() {
-    _sessionShots = 0;
+  /// Resets the raw-baseline counters (and, unless [keepSessionCounts], the
+  /// session counters); only valid right after controller.start() resets its own.
+  void _resetForNewCapture({bool keepSessionCounts = false}) {
     _autoShotRaw = 0;
+    _autoBarDownRaw = 0;
+    if (keepSessionCounts) return;
+    _sessionShots = 0;
     _sessionAutoBarDowns = 0;
     _sessionManualBarDowns = 0;
-    _autoBarDownRaw = 0;
   }
 
-  Future<void> _startCapture() async {
+  Future<void> _startCapture({bool keepSessionCounts = false}) async {
     if (_starting) return;
     setState(() {
       _starting = true;
@@ -207,14 +236,14 @@ class _SessionScreenState extends State<SessionScreen> {
         setState(() {
           _capturing = true;
           _starting = false;
-          _resetForNewCapture();
+          _resetForNewCapture(keepSessionCounts: keepSessionCounts);
         });
       } else {
         // The screen was torn down while this start was still in flight, so
         // dispose() never got a chance to stop it (it only stops a capture
         // that was already marked _capturing). Capture may have started
         // successfully in the background regardless -- release it now
-        // rather than leaking the mic/foreground service indefinitely.
+        // rather than leaking the mic indefinitely.
         unawaited(widget.controller.stop());
       }
     } catch (e) {
@@ -286,8 +315,6 @@ class _SessionScreenState extends State<SessionScreen> {
     }
   }
 
-  Future<void> _moveToBackground() => _systemNavChannel.invokeMethod('moveTaskToBack');
-
   /// Inputs: [get]/[set] the field to adjust, [delta] the signed change.
   /// Outputs: none -- applies the change floored at 0.
   void _adjust(int Function() get, void Function(int) set, int delta) {
@@ -308,128 +335,122 @@ class _SessionScreenState extends State<SessionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !_capturing,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _capturing) _moveToBackground();
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Session'),
-          actions: [
-            if (widget.onSettingsTap != null)
-              IconButton(
-                key: const Key('settingsButton'),
-                icon: const Icon(Icons.settings),
-                onPressed: _handleSettingsTap,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Session'),
+        actions: [
+          if (widget.onSettingsTap != null)
+            IconButton(
+              key: const Key('settingsButton'),
+              icon: const Icon(Icons.settings),
+              onPressed: _handleSettingsTap,
+            ),
+        ],
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Column(
+            children: [
+              Text(
+                'BAR DIZZ',
+                style: AppTypography.h1.copyWith(color: AppColors.iceBluePrimary),
               ),
-          ],
-        ),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            child: Column(
-              children: [
-                Text(
-                  'BAR DIZZ',
-                  style: AppTypography.h1.copyWith(color: AppColors.iceBluePrimary),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  'THE BAR DOWN CHALLENGE',
-                  style: AppTypography.overline.copyWith(color: AppColors.iceBluePrimary),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                _TitledStatsCard(
-                  title: 'HIGH SCORE',
-                  titleKey: const Key('highScoreLabel'),
-                  stats: [
-                    _TotalStat(
-                      label: 'SHOTS',
-                      value: '${_highScore.shots}',
-                      valueKey: const Key('highScoreShotsValue'),
-                    ),
-                    _TotalStat(
-                      label: 'BAR DOWNS',
-                      value: '${_highScore.barDowns}',
-                      valueKey: const Key('highScoreBarDownsValue'),
-                      barDownAccent: true,
-                    ),
-                    _TotalStat(
-                      label: 'RATE',
-                      value: '${(_highScore.rate * 100).toStringAsFixed(1)}%',
-                      valueKey: const Key('highScoreRateValue'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                _TitledStatsCard(
-                  title: 'ALL TIME',
-                  titleKey: const Key('allTimeLabel'),
-                  stats: [
-                    _TotalStat(
-                      label: 'SHOTS',
-                      value: '$_displayedShots',
-                      valueKey: const Key('allTimeShotsValue'),
-                    ),
-                    _TotalStat(
-                      label: 'BAR DOWNS',
-                      value: '$_displayedBarDowns',
-                      valueKey: const Key('allTimeBarDownsValue'),
-                      barDownAccent: true,
-                    ),
-                    _TotalStat(
-                      label: 'RATE',
-                      value: '${_displayedRate.toStringAsFixed(1)}%',
-                      valueKey: const Key('allTimeRateValue'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.xxl),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _CorrectionDial(
-                      label: 'SHOTS',
-                      value: _sessionShots,
-                      running: _capturing,
-                      onIncrement: _incrementShots,
-                      onDecrement: _decrementShots,
-                      incrementKey: const Key('shotIncrementButton'),
-                      decrementKey: const Key('shotDecrementButton'),
-                      valueKey: const Key('sessionShotCountText'),
-                    ),
-                    _CorrectionDial(
-                      label: 'BAR DOWN',
-                      value: _sessionBarDowns,
-                      running: _capturing,
-                      onIncrement: _incrementBarDowns,
-                      onDecrement: _decrementBarDowns,
-                      incrementKey: const Key('barDownIncrementButton'),
-                      decrementKey: const Key('barDownDecrementButton'),
-                      valueKey: const Key('sessionBarDownCountText'),
-                      barDownAccent: true,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.xxl),
-                ElevatedButton(
-                  key: const Key('sessionActionButton'),
-                  onPressed: (_starting || _saving)
-                      ? null
-                      : (_capturing ? _saveSession : _startCapture),
-                  child: Text(_capturing ? 'Save Session' : 'Start Session'),
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    _error!,
-                    key: const Key('sessionErrorText'),
-                    style: AppTypography.errorText,
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'THE BAR DOWN CHALLENGE',
+                style: AppTypography.overline.copyWith(color: AppColors.iceBluePrimary),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              _TitledStatsCard(
+                title: 'HIGH SCORE',
+                titleKey: const Key('highScoreLabel'),
+                stats: [
+                  _TotalStat(
+                    label: 'SHOTS',
+                    value: '${_highScore.shots}',
+                    valueKey: const Key('highScoreShotsValue'),
+                  ),
+                  _TotalStat(
+                    label: 'BAR DOWNS',
+                    value: '${_highScore.barDowns}',
+                    valueKey: const Key('highScoreBarDownsValue'),
+                    barDownAccent: true,
+                  ),
+                  _TotalStat(
+                    label: 'RATE',
+                    value: '${(_highScore.rate * 100).toStringAsFixed(1)}%',
+                    valueKey: const Key('highScoreRateValue'),
                   ),
                 ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              _TitledStatsCard(
+                title: 'ALL TIME',
+                titleKey: const Key('allTimeLabel'),
+                stats: [
+                  _TotalStat(
+                    label: 'SHOTS',
+                    value: '$_displayedShots',
+                    valueKey: const Key('allTimeShotsValue'),
+                  ),
+                  _TotalStat(
+                    label: 'BAR DOWNS',
+                    value: '$_displayedBarDowns',
+                    valueKey: const Key('allTimeBarDownsValue'),
+                    barDownAccent: true,
+                  ),
+                  _TotalStat(
+                    label: 'RATE',
+                    value: '${_displayedRate.toStringAsFixed(1)}%',
+                    valueKey: const Key('allTimeRateValue'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xxl),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _CorrectionDial(
+                    label: 'SHOTS',
+                    value: _sessionShots,
+                    running: _capturing,
+                    onIncrement: _incrementShots,
+                    onDecrement: _decrementShots,
+                    incrementKey: const Key('shotIncrementButton'),
+                    decrementKey: const Key('shotDecrementButton'),
+                    valueKey: const Key('sessionShotCountText'),
+                  ),
+                  _CorrectionDial(
+                    label: 'BAR DOWN',
+                    value: _sessionBarDowns,
+                    running: _capturing,
+                    onIncrement: _incrementBarDowns,
+                    onDecrement: _decrementBarDowns,
+                    incrementKey: const Key('barDownIncrementButton'),
+                    decrementKey: const Key('barDownDecrementButton'),
+                    valueKey: const Key('sessionBarDownCountText'),
+                    barDownAccent: true,
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xxl),
+              ElevatedButton(
+                key: const Key('sessionActionButton'),
+                onPressed: (_starting || _saving)
+                    ? null
+                    : (_capturing ? _saveSession : _startCapture),
+                child: Text(_capturing ? 'Save Session' : 'Start Session'),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: AppSpacing.lg),
+                Text(
+                  _error!,
+                  key: const Key('sessionErrorText'),
+                  style: AppTypography.errorText,
+                ),
               ],
-            ),
+            ],
           ),
         ),
       ),

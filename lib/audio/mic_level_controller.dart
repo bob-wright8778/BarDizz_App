@@ -4,9 +4,8 @@ import 'dart:typed_data';
 import '../settings/eww_always_bar_down_store.dart';
 import 'classifier_detector.dart';
 import 'mic_capture_service.dart';
-import 'mic_foreground_task_handler.dart';
 
-/// Seam between the debug UI and real mic/foreground-service plumbing, so
+/// Seam between the debug UI and real mic plumbing, so
 /// the UI can be widget-tested with a fake implementation instead of
 /// touching platform channels.
 abstract class MicLevelController {
@@ -18,8 +17,8 @@ abstract class MicLevelController {
   Future<void> stop();
 }
 
-/// Production implementation: requests permission, starts the Android
-/// foreground service, then starts raw PCM capture and drives one
+/// Production implementation: requests permission, then starts raw PCM
+/// capture and drives one
 /// [ClassifierDetector] over the stream, translating its classified events
 /// into running shot/bar-down counts. Unlike the old amplitude+spectral-
 /// template `ShotDetector`/`BarDownDetector` pair (two independent state
@@ -69,25 +68,12 @@ class LiveMicLevelController implements MicLevelController {
       throw StateError('Microphone permission denied.');
     }
 
-    initMicForegroundTask();
-    await ensureNotificationPermission();
-    await startMicForegroundService();
-
-    // start() must be atomic: if capture fails to come up after the
-    // foreground service is already running, tear the service back down
-    // rather than leaving it orphaned with nothing left to stop it (the
-    // caller only ever calls stop() once it believes start() succeeded).
-    try {
-      _shotCount = 0;
-      _barDownCount = 0;
-      final pcmStream = await _captureService.start();
-      _levelSubscription =
-          _captureService.amplitudeStream(pcmStream).listen(_levelController.add);
-      _detectionSubscription = pcmStream.listen(_onChunk);
-    } catch (e) {
-      await stopMicForegroundService();
-      rethrow;
-    }
+    _shotCount = 0;
+    _barDownCount = 0;
+    final pcmStream = await _captureService.start();
+    _levelSubscription =
+        _captureService.amplitudeStream(pcmStream).listen(_levelController.add);
+    _detectionSubscription = pcmStream.listen(_onChunk);
   }
 
   void _onChunk(Uint8List chunk) {
@@ -102,7 +88,6 @@ class LiveMicLevelController implements MicLevelController {
         _barDownCount++;
         _barDownCountController.add(_barDownCount);
     }
-    updateMicForegroundNotificationCounts(shots: _shotCount, barDowns: _barDownCount);
   }
 
   @override
@@ -112,6 +97,5 @@ class LiveMicLevelController implements MicLevelController {
     await _detectionSubscription?.cancel();
     _detectionSubscription = null;
     await _captureService.stop();
-    await stopMicForegroundService();
   }
 }

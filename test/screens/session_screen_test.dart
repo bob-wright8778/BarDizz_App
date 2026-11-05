@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hockey_shot_tracker/audio/mic_level_controller.dart';
 import 'package:hockey_shot_tracker/scoreboard/all_time_scoreboard_store.dart';
@@ -10,8 +9,6 @@ import 'package:hockey_shot_tracker/screens/session_screen.dart';
 import 'package:hockey_shot_tracker/theme/design_tokens.dart';
 import 'package:hockey_shot_tracker/widgets/app_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-const _systemNavChannel = MethodChannel('hockey_shot_tracker/system_nav');
 
 class FakeMicLevelController implements MicLevelController {
   final StreamController<double> _levelController =
@@ -634,38 +631,42 @@ void main() {
     expect(persisted.manualBarDowns, 1, reason: 'the manual bar-down correction should not be lost');
   });
 
-  testWidgets(
-      'a system back attempt while capturing asks Android to background the app instead of exiting',
-      (tester) async {
-    final calls = <MethodCall>[];
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      _systemNavChannel,
-      (call) async {
-        calls.add(call);
-        return null;
-      },
-    );
-    addTearDown(() {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(_systemNavChannel, null);
-    });
-
+  testWidgets('leaving the app stops capture and keeps the session counts', (tester) async {
     await pumpScreen(tester);
+    await tester.tap(find.byKey(const Key('shotIncrementButton')));
+    controller.emitShotCount(1);
+    await pumpAfterStreamEvent(tester);
 
-    final popScope = tester.widget<PopScope>(find.byWidgetPredicate((w) => w is PopScope));
-    expect(popScope.canPop, isFalse);
-    popScope.onPopInvokedWithResult!(false, null);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
 
-    expect(calls, hasLength(1));
-    expect(calls.single.method, 'moveTaskToBack');
+    expect(controller.stopped, isTrue);
+    expect(textAt(tester, 'sessionShotCountText').data, '2');
   });
 
-  testWidgets('back is allowed to pop normally when capture failed to start', (tester) async {
-    controller.startError = StateError('Microphone permission denied.');
+  testWidgets('returning to the app restarts capture without resetting the session', (tester) async {
     await pumpScreen(tester);
+    controller.emitShotCount(3);
+    await pumpAfterStreamEvent(tester);
 
-    final popScope = tester.widget<PopScope>(find.byWidgetPredicate((w) => w is PopScope));
-    expect(popScope.canPop, isTrue);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(controller.startCallCount, 2);
+    expect(textAt(tester, 'sessionShotCountText').data, '3');
+
+    // The restarted controller counts from zero again; its first event adds on top.
+    controller.emitShotCount(1);
+    await pumpAfterStreamEvent(tester);
+    expect(textAt(tester, 'sessionShotCountText').data, '4');
   });
 
   group('lifecycle and re-entrancy races', () {
@@ -874,18 +875,6 @@ void main() {
       final loaded = await store.load();
       expect(loaded.shots, 5,
           reason: 'the failed fold must not lose the shots it was trying to save');
-    });
-
-    testWidgets(
-        'back-pop stays blocked immediately after a successful save (capture is still running)',
-        (tester) async {
-      await pumpScreen(tester);
-
-      await tester.tap(find.byKey(const Key('sessionActionButton')));
-      await tester.pumpAndSettle();
-
-      final popScope = tester.widget<PopScope>(find.byWidgetPredicate((w) => w is PopScope));
-      expect(popScope.canPop, isFalse);
     });
   });
 }

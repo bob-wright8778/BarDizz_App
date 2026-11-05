@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
-import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hockey_shot_tracker/audio/classifier_detector.dart';
 import 'package:hockey_shot_tracker/audio/classifier_model.dart';
@@ -73,56 +72,21 @@ Future<void> _flush() => Future<void>.delayed(Duration.zero);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  const mdChannel = MethodChannel('flutter_foreground_task/methods');
   // AudioRecorder() (behind MicCaptureService, never touched by
   // _FakeMicCaptureService's overrides) eagerly calls 'create' on this
   // channel from its constructor -- mocked so merely constructing the fake
   // service doesn't throw MissingPluginException.
   const recordChannel = MethodChannel('com.llfbandit.record/messages');
-  late List<MethodCall> mdCalls;
-  late bool serviceRunning;
 
   setUp(() {
-    mdCalls = [];
-    serviceRunning = false;
-    FlutterForegroundTask.skipServiceResponseCheck = true;
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(mdChannel, (call) async {
-      mdCalls.add(call);
-      switch (call.method) {
-        case 'startService':
-          serviceRunning = true;
-          return null;
-        case 'stopService':
-          serviceRunning = false;
-          return null;
-        case 'isRunningService':
-          return serviceRunning;
-        case 'checkNotificationPermission':
-        case 'requestNotificationPermission':
-          return NotificationPermission.granted.index;
-        default:
-          return null;
-      }
-    });
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(recordChannel, (call) async => null);
   });
 
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(mdChannel, null);
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(recordChannel, null);
-    FlutterForegroundTask.resetStatic();
   });
-
-  String? lastNotificationText() {
-    final updateCalls = mdCalls.where((c) => c.method == 'updateService');
-    if (updateCalls.isEmpty) return null;
-    final args = updateCalls.last.arguments as Map;
-    return args['notificationContentText'] as String?;
-  }
 
   // windowDuration matches one emitted chunk (sineWave's default 320
   // samples/20ms @16kHz), so every `emit` completes and classifies exactly
@@ -230,27 +194,6 @@ void main() {
 
       expect(shotCounts, isEmpty);
       expect(barDownCounts, isEmpty);
-    });
-
-    test('the persistent notification shows both the shot count and the bar-down count', () async {
-      final capture = _FakeMicCaptureService();
-      var now = DateTime(2026);
-      final controller = LiveMicLevelController(captureService: capture, detector: buildDetector(() => now));
-      await controller.start();
-
-      capture.emit(_shotChunk());
-      await _flush();
-      expect(lastNotificationText(), 'Shots: 1 · Bar Downs: 0');
-
-      now = now.add(const Duration(milliseconds: 300));
-      capture.emit(_barHitChunk());
-      await _flush();
-      expect(lastNotificationText(), 'Shots: 1 · Bar Downs: 0', reason: 'a lone bar-hit does not update the notification');
-
-      now = now.add(const Duration(milliseconds: 300));
-      capture.emit(_ewwChunk());
-      await _flush();
-      expect(lastNotificationText(), 'Shots: 1 · Bar Downs: 1');
     });
 
     test('a default LiveMicLevelController (no detector injected) starts without requiring any calibration profile',

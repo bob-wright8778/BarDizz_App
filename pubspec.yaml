@@ -20,16 +20,11 @@ dependencies:
   # pcm16bits encoder on both Android and iOS.
   record: ^7.1.1
 
-  # Android foreground service with a declared "microphone" service type,
-  # so capture survives backgrounding/lock screen per Android 14+ rules.
-  flutter_foreground_task: ^10.0.0
-
   # Runtime microphone permission request/check on both platforms.
   permission_handler: ^12.0.3
 
-  # Local key-value storage for the calibrated reference profile. Already
-  # in the dependency tree transitively (via flutter_foreground_task);
-  # promoted to a direct dependency here since we use it ourselves.
+  # Local key-value storage for settings, scoreboards and the camera
+  # calibration.
   shared_preferences: ^2.5.5
 
   # REST calls to the InsForge auth/profile endpoints.
