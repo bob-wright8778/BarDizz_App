@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hockey_shot_tracker/audio/mic_level_controller.dart';
@@ -8,7 +7,6 @@ import 'package:hockey_shot_tracker/scoreboard/all_time_scoreboard_store.dart';
 import 'package:hockey_shot_tracker/scoreboard/high_score_store.dart';
 import 'package:hockey_shot_tracker/screens/session_screen.dart';
 import 'package:hockey_shot_tracker/theme/design_tokens.dart';
-import 'package:hockey_shot_tracker/video/luma_frame.dart';
 import 'package:hockey_shot_tracker/video/norm_rect.dart';
 import 'package:hockey_shot_tracker/video/shot_fusion.dart';
 import 'package:hockey_shot_tracker/video/shot_tracker.dart';
@@ -16,6 +14,8 @@ import 'package:hockey_shot_tracker/video/video_calibration.dart';
 import 'package:hockey_shot_tracker/video/video_shot_controller.dart';
 import 'package:hockey_shot_tracker/widgets/app_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../support/fake_video_feed.dart';
 
 class FakeMicLevelController implements MicLevelController {
   final StreamController<double> _levelController =
@@ -67,32 +67,6 @@ class FakeMicLevelController implements MicLevelController {
     _shotCountController.close();
     _barDownCountController.close();
   }
-}
-
-class FakeVideoShotFeed implements VideoShotFeed {
-  final StreamController<ShotAnalysis> _analyses = StreamController<ShotAnalysis>.broadcast();
-  final ValueNotifier<ShotSource> sourceNotifier = ValueNotifier(ShotSource.soundOnly);
-  final ValueNotifier<LumaFrame?> _latestFrame = ValueNotifier(null);
-
-  @override
-  VideoCalibration? calibration;
-
-  @override
-  Stream<ShotAnalysis> get analyses => _analyses.stream;
-
-  @override
-  ValueListenable<ShotSource> get source => sourceNotifier;
-
-  @override
-  ValueListenable<LumaFrame?> get latestFrame => _latestFrame;
-
-  @override
-  Future<void> setCalibration(VideoCalibration c) async => calibration = c;
-
-  @override
-  Widget? buildPreview() => null;
-
-  void emit(ShotAnalysis a) => _analyses.add(a);
 }
 
 // Wraps the real store to let tests hold a save open (gate) or make it fail

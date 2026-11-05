@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -33,8 +34,14 @@ abstract class VideoShotFeed {
   /// How shots are being counted in the current session.
   ValueListenable<ShotSource> get source;
 
-  /// The latest analysis-grid frame while the camera runs, for calibration.
-  ValueListenable<LumaFrame?> get latestFrame;
+  /// The next camera frame at full resolution, as the sensor delivers it
+  /// (not yet rotated upright), or `null` if the camera isn't running --
+  /// for calibration, where a sharper puck means a better size measurement.
+  Future<LumaFrame?> captureStill();
+
+  /// Best guess at the clockwise quarter turns that make [captureStill]'s
+  /// frames upright for how the phone is currently standing.
+  int get suggestedQuarterTurns;
 
   VideoCalibration? get calibration;
 
@@ -68,7 +75,7 @@ class LiveVideoShotController implements MicLevelController, VideoShotFeed {
   final StreamController<ShotAnalysis> _analysisController =
       StreamController<ShotAnalysis>.broadcast();
   final ValueNotifier<ShotSource> _source = ValueNotifier(ShotSource.soundOnly);
-  final ValueNotifier<LumaFrame?> _latestFrame = ValueNotifier(null);
+  Completer<LumaFrame?>? _stillRequest;
 
   CameraController? _camera;
   VideoCalibration? _calibration;
@@ -97,7 +104,31 @@ class LiveVideoShotController implements MicLevelController, VideoShotFeed {
   ValueListenable<ShotSource> get source => _source;
 
   @override
-  ValueListenable<LumaFrame?> get latestFrame => _latestFrame;
+  Future<LumaFrame?> captureStill() {
+    final camera = _camera;
+    if (camera == null || !camera.value.isStreamingImages) return Future.value(null);
+    return (_stillRequest ??= Completer<LumaFrame?>()).future;
+  }
+
+  @override
+  int get suggestedQuarterTurns {
+    final camera = _camera;
+    if (camera == null) return 0;
+    // The sensor is mounted at sensorOrientation degrees; a back camera's
+    // frame needs that much clockwise rotation, less however far the phone
+    // itself is turned, to come out upright.
+    final device = switch (camera.value.deviceOrientation) {
+      DeviceOrientation.portraitUp => 0,
+      DeviceOrientation.landscapeLeft => 90,
+      DeviceOrientation.portraitDown => 180,
+      DeviceOrientation.landscapeRight => 270,
+    };
+    final sensor = camera.description.sensorOrientation;
+    final degrees = camera.description.lensDirection == CameraLensDirection.front
+        ? (sensor + device) % 360
+        : (sensor - device + 360) % 360;
+    return degrees ~/ 90;
+  }
 
   @override
   VideoCalibration? get calibration => _calibration;
@@ -179,14 +210,25 @@ class LiveVideoShotController implements MicLevelController, VideoShotFeed {
   // plane is read: a black puck on a light pad needs no colour.
   void _onImage(CameraImage image) {
     final y = image.planes.first;
-    final frame = downsampleLuma(
-      y.bytes,
-      width: image.width,
-      height: image.height,
-      bytesPerRow: y.bytesPerRow,
+    final still = _stillRequest;
+    if (still != null) {
+      _stillRequest = null;
+      still.complete(downsampleLuma(
+        y.bytes,
+        width: image.width,
+        height: image.height,
+        bytesPerRow: y.bytesPerRow,
+        targetWidth: image.width,
+      ));
+    }
+
+    final tracker = _tracker;
+    if (tracker == null) return;
+    final frame = rotateLuma(
+      downsampleLuma(y.bytes, width: image.width, height: image.height, bytesPerRow: y.bytesPerRow),
+      tracker.calibration.quarterTurns,
     );
-    _latestFrame.value = frame;
-    final shot = _tracker?.addFrame(frame, DateTime.now());
+    final shot = tracker.addFrame(frame, DateTime.now());
     if (shot != null && _source.value == ShotSource.video) _onVideoShot(shot);
   }
 
@@ -212,7 +254,8 @@ class LiveVideoShotController implements MicLevelController, VideoShotFeed {
     _subscriptions.clear();
     final camera = _camera;
     _camera = null;
-    _latestFrame.value = null;
+    _stillRequest?.complete(null);
+    _stillRequest = null;
     if (camera != null) {
       if (camera.value.isStreamingImages) await camera.stopImageStream();
       await camera.dispose();

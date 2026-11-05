@@ -6,9 +6,22 @@ Flutter app, Android + iOS.
 
 ## How shots are detected
 
-Mount the phone sideways behind or beside the shooter so the shooting spot
-and the net are both in view, then mark both once under
-Settings → Camera setup. The app only captures while it's open, and keeps the
+Stand the phone up, upright or sideways, behind or beside the shooter so
+the shooting spot and the net are both in view, then mark both once under
+Settings → Camera setup. Frames are rotated upright to match how the phone
+stands. The rotation is guessed from the phone's orientation, and the setup
+screen's Rotate button corrects a wrong guess.
+
+The shooting distance (needed for speed) is worked out during setup rather
+than entered. A pinhole camera puts an object of known size at a depth of
+`real size × focal length ÷ size on screen`, so the regulation net's 4 ft
+opening height places the net, and the puck's 3 in width places the
+shooting spot. The distance is the gap between those two points. The net's
+height is used instead of its 6 ft width because width shrinks when the
+camera is off to the side. The weak point is the focal length: Flutter's
+camera plugin doesn't report it, so a typical 69° phone main camera is
+assumed (`lib/video/distance_estimate.dart`), which is good to roughly ±15%.
+For a non-regulation net, or a measured distance, it can be set by hand. The app only captures while it's open, and keeps the
 screen on during a session.
 
 - **Shot (camera, `lib/video/`):** each frame's luma plane is shrunk to a
@@ -27,8 +40,9 @@ screen on during a session.
 
 Known limits of this first, untrained version: it needs a light shooting pad
 against a black puck; the shooter shouldn't stand between the camera and the
-net; and speed is coarse, since 30–60 fps frame timing limits it to roughly
-±10%.
+net; speed is coarse, since 30–60 fps frame timing and the distance estimate
+each add about ±10–15%; and if the phone is re-mounted differently, run
+camera setup again.
 
 ## Ticket 01 status: mic capture proof-of-concept
 

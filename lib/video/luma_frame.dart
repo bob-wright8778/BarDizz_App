@@ -1,10 +1,11 @@
 import 'dart:typed_data';
 
-/// Width (in cells) of the grid every camera frame is shrunk to before
-/// analysis. Fixed, so a calibration taken on one camera resolution still
-/// lines up on another: everything downstream works in fractions of this
-/// grid, never in raw camera pixels.
-const int analysisGridWidth = 192;
+/// Upper bound (in cells) on the long side of the grid every camera frame
+/// is shrunk to before analysis. Everything downstream works in fractions of
+/// the frame, never in raw camera pixels, so a calibration taken at one
+/// resolution still lines up at another. At ~720 px camera frames this is a
+/// 2x shrink, keeping a puck 12 ft away about 5 cells wide.
+const int analysisGridWidth = 360;
 
 /// One greyscale camera frame on the analysis grid: [width] x [height] luma
 /// cells, row-major, 0 = black.
@@ -51,6 +52,39 @@ LumaFrame downsampleLuma(
         }
       }
       out[oy * outW + ox] = sum ~/ area;
+    }
+  }
+  return LumaFrame(width: outW, height: outH, pixels: out);
+}
+
+/// Rotates [frame] clockwise by [quarterTurns] x 90 degrees -- used to turn
+/// the camera sensor's fixed landscape frames upright for however the phone
+/// is standing.
+LumaFrame rotateLuma(LumaFrame frame, int quarterTurns) {
+  final turns = quarterTurns % 4;
+  if (turns == 0) return frame;
+  final w = frame.width;
+  final h = frame.height;
+  final src = frame.pixels;
+  final out = Uint8List(w * h);
+  final outW = turns == 2 ? w : h;
+  final outH = turns == 2 ? h : w;
+  // Per-turn loops rather than one loop with a per-pixel switch: this runs on
+  // every camera frame.
+  for (var y = 0; y < h; y++) {
+    final row = y * w;
+    if (turns == 1) {
+      for (var x = 0; x < w; x++) {
+        out[x * outW + (h - 1 - y)] = src[row + x];
+      }
+    } else if (turns == 2) {
+      for (var x = 0; x < w; x++) {
+        out[(h - 1 - y) * outW + (w - 1 - x)] = src[row + x];
+      }
+    } else {
+      for (var x = 0; x < w; x++) {
+        out[(w - 1 - x) * outW + y] = src[row + x];
+      }
     }
   }
   return LumaFrame(width: outW, height: outH, pixels: out);

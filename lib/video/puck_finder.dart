@@ -6,13 +6,23 @@ import 'norm_rect.dart';
 
 /// A puck-shaped dark blob, in normalized frame coordinates.
 class PuckBlob {
-  const PuckBlob({required this.x, required this.y, required this.area});
+  const PuckBlob({
+    required this.x,
+    required this.y,
+    required this.area,
+    required this.width,
+    required this.height,
+  });
 
   final double x;
   final double y;
 
   /// Size in analysis-grid cells.
   final int area;
+
+  /// Bounding-box size in analysis-grid cells.
+  final int width;
+  final int height;
 }
 
 class PuckFinderConfig {
@@ -69,11 +79,10 @@ int medianLuma(LumaFrame frame, NormRect rect) {
 }
 
 /// Outputs: the expected puck area in grid cells on [frame] for a puck
-/// [diameter] wide (fraction of frame width).
-double expectedPuckArea(LumaFrame frame, double diameter) {
-  final cells = diameter * frame.width;
-  return math.pi / 4 * cells * cells;
-}
+/// that looks [width] x [height] (both fractions of frame width) -- an
+/// ellipse, since the camera sees the flat puck at an angle.
+double expectedPuckArea(LumaFrame frame, double width, double height) =>
+    math.pi / 4 * (width * frame.width) * (height * frame.width);
 
 /// Finds puck-like blobs inside [region]: connected cells darker than
 /// [referenceLuma] x [PuckFinderConfig.darkRatio] whose size is near
@@ -140,26 +149,44 @@ List<PuckBlob> findPuckBlobs(
         x: (x0 + sumX / area + 0.5) / frame.width,
         y: (y0 + sumY / area + 0.5) / frame.height,
         area: area,
+        width: boxW,
+        height: boxH,
       ));
     }
   }
   return blobs;
 }
 
+/// A resting puck measured for calibration, in normalized frame
+/// coordinates; [width]/[height] are fractions of frame width.
+class PuckMeasurement {
+  const PuckMeasurement({required this.x, required this.y, required this.width, required this.height});
+
+  final double x;
+  final double y;
+  final double width;
+  final double height;
+}
+
 /// Measures a resting puck for calibration: the largest puck-like blob in
-/// [zone], searched with loose size limits around [guessDiameter].
+/// [zone], searched with loose size limits around a disc [guessWidth] wide.
 ///
-/// Outputs: its diameter as a fraction of frame width, or `null` if no puck
-/// is visible.
-double? measurePuckDiameter(LumaFrame frame, NormRect zone, {required double guessDiameter}) {
+/// Outputs: its centre and on-screen size, or `null` if no puck is visible.
+PuckMeasurement? measurePuck(LumaFrame frame, NormRect zone, {required double guessWidth}) {
   final blobs = findPuckBlobs(
     frame,
     zone,
     referenceLuma: medianLuma(frame, zone),
-    expectedArea: expectedPuckArea(frame, guessDiameter),
-    config: const PuckFinderConfig(minAreaFactor: 0.15, maxAreaFactor: 6),
+    expectedArea: expectedPuckArea(frame, guessWidth, guessWidth * 0.6),
+    // Loose: the guess comes from the zone size and can be well off.
+    config: const PuckFinderConfig(minAreaFactor: 0.1, maxAreaFactor: 8),
   );
   if (blobs.isEmpty) return null;
   final biggest = blobs.reduce((a, b) => a.area >= b.area ? a : b);
-  return math.sqrt(4 * biggest.area / math.pi) / frame.width;
+  return PuckMeasurement(
+    x: biggest.x,
+    y: biggest.y,
+    width: biggest.width / frame.width,
+    height: biggest.height / frame.width,
+  );
 }

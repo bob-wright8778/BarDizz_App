@@ -41,7 +41,11 @@ void main() {
     late double area;
 
     setUp(() {
-      area = expectedPuckArea(syntheticFrame(), testCalibration.effectivePuckDiameter);
+      area = expectedPuckArea(
+        syntheticFrame(),
+        testCalibration.effectivePuckWidth,
+        testCalibration.effectivePuckHeight,
+      );
     });
 
     test('finds a dark disc and reports its centre', () {
@@ -73,18 +77,49 @@ void main() {
     });
   });
 
-  group('measurePuckDiameter', () {
+  group('measurePuck', () {
     test('measures a resting puck even when the guess is well off', () {
       final frame = syntheticFrame(discs: [(0.5, 0.75, 0.04)]);
-      final d = measurePuckDiameter(frame, testCalibration.shootingZone, guessDiameter: 0.02);
-      expect(d, closeTo(0.04, 0.005));
+      final m = measurePuck(frame, testCalibration.shootingZone, guessWidth: 0.02)!;
+      expect(m.width, closeTo(0.04, 0.006));
+      expect(m.x, closeTo(0.5, 0.01));
+      expect(m.y, closeTo(0.75, 0.02));
+    });
+
+    test('reports a flattened puck as wider than tall', () {
+      final frame = syntheticFrame(darkRects: [const NormRect(0.48, 0.74, 0.52, 0.76)]);
+      final m = measurePuck(frame, testCalibration.shootingZone, guessWidth: 0.04)!;
+      expect(m.width, greaterThan(m.height));
     });
 
     test('is null with no puck in the zone', () {
-      expect(
-        measurePuckDiameter(syntheticFrame(), testCalibration.shootingZone, guessDiameter: 0.02),
-        isNull,
-      );
+      expect(measurePuck(syntheticFrame(), testCalibration.shootingZone, guessWidth: 0.02), isNull);
+    });
+  });
+
+  group('rotateLuma', () {
+    // 3x2:  1 2 3
+    //       4 5 6
+    final frame = LumaFrame(width: 3, height: 2, pixels: Uint8List.fromList([1, 2, 3, 4, 5, 6]));
+
+    test('one clockwise turn', () {
+      final r = rotateLuma(frame, 1);
+      expect((r.width, r.height), (2, 3));
+      expect(r.pixels, [4, 1, 5, 2, 6, 3]);
+    });
+
+    test('half turn', () {
+      expect(rotateLuma(frame, 2).pixels, [6, 5, 4, 3, 2, 1]);
+    });
+
+    test('three clockwise turns is one anticlockwise', () {
+      final r = rotateLuma(frame, 3);
+      expect((r.width, r.height), (2, 3));
+      expect(r.pixels, [3, 6, 2, 5, 1, 4]);
+    });
+
+    test('four turns is no turn', () {
+      expect(identical(rotateLuma(frame, 4), frame), isTrue);
     });
   });
 }

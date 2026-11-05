@@ -67,19 +67,26 @@ void main() {
       const original = VideoCalibration(
         shootingZone: NormRect(0.1, 0.5, 0.4, 0.9),
         net: NormRect(0.5, 0.1, 0.9, 0.4),
-        puckDiameter: 0.025,
+        quarterTurns: 1,
+        puckWidth: 0.025,
+        puckHeight: 0.01,
         shotDistanceFeet: 22,
+        distanceIsManual: true,
       );
       final copy = VideoCalibration.decode(original.encode());
       expect(copy.shootingZone, original.shootingZone);
       expect(copy.net, original.net);
-      expect(copy.puckDiameter, 0.025);
+      expect(copy.quarterTurns, 1);
+      expect(copy.puckWidth, 0.025);
+      expect(copy.puckHeight, 0.01);
       expect(copy.shotDistanceFeet, 22);
+      expect(copy.distanceIsManual, isTrue);
     });
 
     test('estimates the puck size from the zone when it was not measured', () {
       const c = VideoCalibration(shootingZone: NormRect(0, 0, 0.32, 0.5), net: NormRect(0, 0, 1, 1));
-      expect(c.effectivePuckDiameter, closeTo(0.02, 1e-9));
+      expect(c.effectivePuckWidth, closeTo(0.02, 1e-9));
+      expect(c.effectivePuckHeight, closeTo(0.012, 1e-9));
     });
   });
 }

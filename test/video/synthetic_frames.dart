@@ -12,7 +12,9 @@ const int frameH = 108;
 const testCalibration = VideoCalibration(
   shootingZone: NormRect(0.35, 0.6, 0.65, 0.9),
   net: NormRect(0.4, 0.1, 0.6, 0.35),
-  puckDiameter: 0.03,
+  // The synthetic puck is a round disc, so its height equals its width.
+  puckWidth: 0.03,
+  puckHeight: 0.03,
   shotDistanceFeet: 15,
 );
 

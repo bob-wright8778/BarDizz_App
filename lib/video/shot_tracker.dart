@@ -126,12 +126,12 @@ class ShotTracker {
     _prevFrame = frame;
     _prevTime = time;
 
-    final diameter = calibration.effectivePuckDiameter;
-    final expectedArea = expectedPuckArea(frame, diameter);
+    final puckWidth = calibration.effectivePuckWidth;
+    final expectedArea = expectedPuckArea(frame, puckWidth, calibration.effectivePuckHeight);
     final reference = medianLuma(frame, calibration.shootingZone);
     final aspect = frame.width / frame.height;
     final search = calibration.shootingZone
-        .inflate(diameter * config.zoneMarginPucks, diameter * config.zoneMarginPucks * aspect);
+        .inflate(puckWidth * config.zoneMarginPucks, puckWidth * config.zoneMarginPucks * aspect);
     final blob = _pick(findPuckBlobs(
       frame,
       search,
